@@ -522,9 +522,168 @@ async def summarize_audio(audio_path: str) -> str:
 
 ---
 
-## 八、参考资料
+## 八、开发问题排查与解决方案
+
+> 本章节记录 Phase 1 开发过程中遇到的问题及解决方案
+
+### 8.1 SSE 连接中断问题
+
+**问题描述**：
+- 前端使用 EventSource (SSE) 连接 `/api/download/progress/{task_id}` 获取下载进度
+- 浏览器控制台显示"连接中断"
+- Next.js 代理可能不支持 SSE 长连接
+
+**解决方案**：
+- 改用**轮询机制**替代 SSE，每 1 秒调用 `GET /api/download/status/{task_id}` 获取进度
+- 前端使用 `setInterval` 实现轮询，下载完成或失败时清除定时器
+
+**伪代码**：
+```typescript
+// 前端轮询实现
+const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+const handleDownload = async () => {
+  // 提交任务...
+  const taskId = data.data.task_id;
+
+  // 启动轮询
+  pollingRef.current = setInterval(async () => {
+    const statusRes = await fetch(`/api/download/status/${taskId}`);
+    const statusData = await statusRes.json();
+
+    setTask(statusData.data);
+
+    // 下载完成或失败时停止轮询
+    if (statusData.data.status === "finished" ||
+        statusData.data.status === "failed") {
+      clearInterval(pollingRef.current);
+      setLoading(false);
+    }
+  }, 1000);
+};
+```
+
+**变更点**：
+- `web/src/components/DownloadCard.tsx` - 重构下载逻辑，移除 SSE 改用轮询
+
+---
+
+### 8.2 Bilibili 412 Precondition Failed 错误
+
+**问题描述**：
+- Bilibili 返回 `HTTP Error 412: Precondition Failed`
+- 直接访问视频页面需要浏览器 Cookie 验证
+
+**解决方案**：
+- 添加 `cookiesfrombrowser` 选项，让 yt-dlp 从 Chrome 浏览器读取 Cookie
+- 同时添加浏览器 User-Agent headers 模拟真实浏览器请求
+
+**伪代码**：
+```python
+ydl_opts = {
+    # 从 Chrome 浏览器读取 cookies
+    'cookiesfrombrowser': ('chrome', None, None, None),
+    'http_headers': {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+    },
+}
+```
+
+**变更点**：
+- `app/services/downloader.py` - 添加 `cookiesfrombrowser` 和 `http_headers` 配置
+
+---
+
+### 8.3 视频编码不兼容 QuickTime
+
+**问题描述**：
+- 下载的 MP4 文件与 QuickTime Player 不兼容
+- 使用 `ffprobe` 检查发现视频编码为 **AV1 (av01)**，QuickTime 不支持
+
+**根因分析**：
+- Bilibili 提供多种编码格式：H.264 (avc1) 和 AV1 (av01)
+- 默认选择最高质量格式，但 AV1 编码 Mac 原生不支持
+
+**解决方案**：
+- 使用 yt-dlp 格式选择器优先选择 H.264/AVC 编码
+- 格式选择器语法：`[vcodec~='avc']` 匹配 AVC 编码
+
+**伪代码**：
+```python
+# 构建格式参数，优先选择 H.264/AVC 编码
+if quality == "best":
+    # 优先选择 H.264/AVC 编码，否则降级
+    format_spec = "(bestvideo[height<=720][vcodec~='avc']/bestvideo[height<=720])+bestaudio/best"
+else:
+    height = quality.replace("p", "")
+    format_spec = f"(bestvideo[height<={height}][vcodec~='avc']/bestvideo[height<={height}])+bestaudio/best"
+```
+
+**可用格式参考（Bilibili BV173D9BGE23）**：
+| Format ID | 分辨率 | 编码 | 文件大小 |
+|-----------|--------|------|----------|
+| 30064 | 1280x720 | avc1.640033 (H.264) | ~694MB |
+| 100024 | 1280x720 | av01 (AV1) | ~395MB |
+| 30080 | 1920x1080 | avc1.640034 (H.264) | ~1.59GB |
+| 100026 | 1920x1080 | av01 (AV1) | ~779MB |
+
+**变更点**：
+- `app/services/downloader.py` - 修改 `format_spec` 格式选择器
+
+---
+
+### 8.4 本地文件保存问题
+
+**问题描述**：
+- 用户无法选择下载文件保存到本地哪个目录
+
+**解决方案**：
+- 由于浏览器安全限制，网页无法直接访问本地文件系统
+- 采用标准方式：前端调用 `/api/download/file/{task_id}` 获取文件流
+- 使用 `URL.createObjectURL()` + 临时 `<a>` 标签触发浏览器下载对话框
+- 用户可在浏览器下载对话框中选择保存位置
+
+**伪代码**：
+```typescript
+const handleDownloadFile = async () => {
+  const res = await fetch(`/api/download/file/${taskId}`);
+  const blob = await res.blob();
+  const blobUrl = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(blobUrl);
+};
+```
+
+**变更点**：
+- `web/src/components/DownloadCard.tsx` - 添加 `handleDownloadFile` 方法处理文件下载
+
+---
+
+### 8.5 yt-dlp 版本问题
+
+**问题描述**：
+- `requirements.txt` 中指定 `yt-dlp==2024.02.10` 版本不存在
+- pip 报错：`No matching distribution found for yt-dlp==2024.02.10`
+
+**解决方案**：
+- 更新为可用的稳定版本 `yt-dlp==2025.4.30`
+
+**变更点**：
+- `requirements.txt` - 修改 `yt-dlp==2025.4.30`
+
+---
+
+## 九、参考资料
 
 - [yt-dlp GitHub](https://github.com/yt-dlp/yt-dlp)
+- [yt-dlp Format Selection](https://github.com/yt-dlp/yt-dlp?tab=readme-ov-file#format-selection)
 - [参考网站：AI 绘图提示词](https://ai.codefather.cn/painting)
 - [万能视频下载器Research.md](./万能视频下载器Research.md)
 - [架构图.excalidraw](./万能视频下载器_架构图.excalidraw)
@@ -532,6 +691,19 @@ async def summarize_audio(audio_path: str) -> str:
 
 ---
 
-> **文档状态**：待人工确认方案
+## 十、验收标准（更新版）
+
+### 10.1 Phase 1 验收
+
+- [x] 能下载 YouTube 视频（720p+）
+- [x] 能展示下载进度（百分比、速度、剩余时间）
+- [x] UI 符合 Research 风格（蓝色渐变、玻璃拟态、大圆角）
+- [x] 后端无数据库，纯内存状态
+- [x] 视频编码兼容 QuickTime (H.264)
+- [x] Bilibili 下载支持（需 Chrome Cookie）
+
+---
+
+> **文档状态**：Phase 1 开发完成，已验证
 >
-> 请确认以上方案，特别是第四章的待确认问题。确认后我将进入开发阶段。
+> 更新日期：2026-04-19
