@@ -68,11 +68,12 @@ class VideoSummarizer:
                 'duration': 0
             }
 
-        subtitle_text = ""
-
         # 优先从 subtitles 或 automatic_captions 中提取字幕内容
         subtitles_data = info.get('subtitles') or {}
         auto_subtitles_data = info.get('automatic_captions') or {}
+
+        subtitle_text = ""
+        subtitle_with_timestamps = ""
 
         # 优先使用 AI 字幕（ai-zh），其次是中文字幕
         for lang in ['ai-zh', 'zh-Hans', 'zh-Hant', 'en']:
@@ -81,34 +82,36 @@ class VideoSummarizer:
                 sub_list = subtitles_data[lang]
                 for sub in sub_list:
                     if 'data' in sub:
-                        # 直接包含字幕内容
-                        subtitle_text = sub['data']
+                        # 直接包含字幕内容（带时间戳的原始格式）
+                        subtitle_with_timestamps = sub['data']
+                        subtitle_text = self._parse_subtitle_content(subtitle_with_timestamps)
                         break
                     elif 'url' in sub:
-                        # 需要下载字幕
-                        subtitle_text = await self._download_subtitle_text(sub['url'])
-                        if subtitle_text:
+                        subtitle_with_timestamps = await self._download_subtitle_text(sub['url'])
+                        if subtitle_with_timestamps:
+                            subtitle_text = self._parse_subtitle_content(subtitle_with_timestamps)
                             break
-                if subtitle_text:
+                if subtitle_with_timestamps:
                     break
 
             # 再检查自动字幕
-            if lang in auto_subtitles_data and not subtitle_text:
+            if lang in auto_subtitles_data and not subtitle_with_timestamps:
                 sub_list = auto_subtitles_data[lang]
                 for sub in sub_list:
                     if 'data' in sub:
-                        subtitle_text = sub['data']
+                        subtitle_with_timestamps = sub['data']
+                        subtitle_text = self._parse_subtitle_content(subtitle_with_timestamps)
                         break
                     elif 'url' in sub:
-                        subtitle_text = await self._download_subtitle_text(sub['url'])
-                        if subtitle_text:
+                        subtitle_with_timestamps = await self._download_subtitle_text(sub['url'])
+                        if subtitle_with_timestamps:
+                            subtitle_text = self._parse_subtitle_content(subtitle_with_timestamps)
                             break
-                if subtitle_text:
+                if subtitle_with_timestamps:
                     break
 
         # 如果没有从 info 中获取到字幕，尝试读取下载的字幕文件
-        subtitle_with_timestamps = ""
-        if not subtitle_text:
+        if not subtitle_with_timestamps:
             subtitle_files = list(subtitle_dir.glob('*.srt'))
             for sub_file in subtitle_files:
                 try:
