@@ -59,7 +59,18 @@ class VideoDownloader:
             "eta": task.eta,
             "title": task.title,
             "filename": task.filename,
-            "error": task.error
+            "error": task.error,
+            # 解析相关字段
+            "url": task.url,
+            "thumbnail": task.thumbnail,
+            "description": task.description,
+            "duration": task.duration,
+            "duration_str": task.duration_str,
+            "uploader": task.uploader,
+            "platform": task.platform,
+            "is_playlist": task.is_playlist,
+            "playlist_count": task.playlist_count,
+            "entries": task.entries
         }
 
     async def download(
@@ -194,6 +205,160 @@ class VideoDownloader:
             return f"{seconds // 60}m {seconds % 60}s"
         else:
             return f"{seconds}s"
+
+    async def parse_video(self, url: str, task_id: str) -> Dict[str, Any]:
+        """解析视频元数据，不下载"""
+        self.update_task(task_id, status=TaskStatus.PARSING)
+
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'extract_flat': False,
+            'cookiesfrombrowser': ('chrome', None, None, None),
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            },
+        }
+
+        loop = asyncio.get_event_loop()
+
+        def sync_parse():
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(url, download=False)
+                    return info
+            except Exception as e:
+                self.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
+                raise
+
+        try:
+            info = await loop.run_in_executor(download_executor, sync_parse)
+
+            # 提取基本信息
+            thumbnail = info.get('thumbnail') if info else None
+            fixed_thumbnail = self._fix_thumbnail_url(thumbnail) if thumbnail else None
+
+            # 异步下载缩略图为 base64（绕过防盗链）
+            thumbnail_base64 = await self.download_thumbnail_as_base64(fixed_thumbnail) if fixed_thumbnail else None
+
+            result = {
+                'task_id': task_id,
+                'url': url,
+                'title': info.get('title', '未知标题') if info else '未知标题',
+                'thumbnail': thumbnail_base64 or fixed_thumbnail,
+                'description': info.get('description', '') if info else '',
+                'duration': info.get('duration', 0) if info else 0,
+                'duration_str': self._format_duration(info.get('duration', 0) if info else 0),
+                'uploader': info.get('uploader', '未知作者') if info else '未知作者',
+                'platform': self._extract_platform(url),
+                'is_playlist': info.get('_type') == 'playlist' if info else False,
+                'playlist_count': 0,
+                'entries': []
+            }
+
+            # 如果是 playlist，提取 entries
+            if result['is_playlist'] and info and 'entries' in info:
+                entries = info['entries'] or []
+                result['playlist_count'] = len(entries)
+                result['entries'] = [
+                    {
+                        'index': i + 1,
+                        'title': entry.get('title', f'视频{i+1}') if entry else f'视频{i+1}',
+                        'duration': entry.get('duration', 0) if entry else 0,
+                        'duration_str': self._format_duration(entry.get('duration', 0) if entry else 0),
+                        'thumbnail': self._fix_thumbnail_url(entry.get('thumbnail')) if entry and entry.get('thumbnail') else None
+                    }
+                    for i, entry in enumerate(entries[:50])  # 最多取50个
+                ]
+
+            # 更新任务状态
+            self.update_task(
+                task_id,
+                status=TaskStatus.PARSED,
+                title=result['title'],
+                thumbnail=result['thumbnail'],
+                description=result['description'],
+                duration=result['duration'],
+                duration_str=result['duration_str'],
+                uploader=result['uploader'],
+                platform=result['platform'],
+                is_playlist=result['is_playlist'],
+                playlist_count=result['playlist_count'],
+                entries=result['entries']
+            )
+
+            return result
+
+        except Exception as e:
+            self.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
+            raise
+
+    @staticmethod
+    def _format_duration(seconds: float) -> str:
+        """格式化视频时长"""
+        if seconds is None or seconds == 0:
+            return "00:00"
+        # 确保转换为 int
+        seconds = int(seconds)
+        if seconds >= 3600:
+            hours = seconds // 3600
+            minutes = (seconds % 3600) // 60
+            secs = seconds % 60
+            return f"{hours}:{minutes:02d}:{secs:02d}"
+        else:
+            minutes = seconds // 60
+            secs = seconds % 60
+            return f"{minutes}:{secs:02d}"
+
+    @staticmethod
+    def _extract_platform(url: str) -> str:
+        """提取视频平台"""
+        if 'bilibili.com' in url:
+            return '哔哩哔哩'
+        elif 'youtube.com' in url or 'youtu.be' in url:
+            return 'YouTube'
+        elif 'twitter.com' in url or 'x.com' in url:
+            return 'X/Twitter'
+        elif 'tiktok.com' in url:
+            return 'TikTok'
+        elif 'douyin.com' in url:
+            return '抖音'
+        elif 'v.weibo.com' in url:
+            return '微博'
+        elif 'ixigua.com' in url:
+            return '西瓜视频'
+        else:
+            return '其他'
+
+    @staticmethod
+    def _fix_thumbnail_url(thumbnail: str) -> str:
+        """修复 thumbnail URL，将 http 转换为 https"""
+        if thumbnail and thumbnail.startswith('http://'):
+            return thumbnail.replace('http://', 'https://')
+        return thumbnail
+
+    @staticmethod
+    async def download_thumbnail_as_base64(thumbnail_url: str) -> str:
+        """下载缩略图并转为 base64，用于绕过防盗链"""
+        import httpx
+        try:
+            async with httpx.AsyncClient(follow_redirects=True, timeout=10) as client:
+                # 添加 referer 头来绕过防盗链
+                headers = {
+                    'Referer': 'https://www.bilibili.com/',
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
+                response = await client.get(thumbnail_url, headers=headers)
+                if response.status_code == 200:
+                    import base64
+                    img_data = base64.b64encode(response.content).decode('utf-8')
+                    mime_type = response.headers.get('content-type', 'image/jpeg')
+                    return f"data:{mime_type};base64,{img_data}"
+        except Exception as e:
+            print(f"下载缩略图失败: {e}")
+        return thumbnail_url  # 失败时返回原 URL
 
 
 # 全局单例

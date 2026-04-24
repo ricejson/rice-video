@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import download, task, subscribe
+from app.api import download, task, subscribe, parse
 
 app = FastAPI(
     title="万能视频下载器 API",
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(download.router)
 app.include_router(task.router)
 app.include_router(subscribe.router)
+app.include_router(parse.router)
 
 
 @app.get("/")

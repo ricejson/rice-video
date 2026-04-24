@@ -5,3 +5,9 @@
 downloads/
 
 web/node_modules/
+
+# Test files
+test_*.py
+
+# Documentation
+docs/

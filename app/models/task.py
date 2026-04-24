@@ -7,6 +7,8 @@ import uuid
 
 class TaskStatus(str, Enum):
     PENDING = "pending"
+    PARSING = "parsing"
+    PARSED = "parsed"
     DOWNLOADING = "downloading"
     FINISHED = "finished"
     FAILED = "failed"
@@ -22,6 +24,16 @@ class DownloadTask(BaseModel):
     title: Optional[str] = None
     filename: Optional[str] = None
     error: Optional[str] = None
+    # 解析相关字段
+    thumbnail: Optional[str] = None
+    description: Optional[str] = None
+    duration: Optional[int] = None
+    duration_str: Optional[str] = None
+    uploader: Optional[str] = None
+    platform: Optional[str] = None
+    is_playlist: bool = False
+    playlist_count: int = 0
+    entries: list = []
     created_at: datetime = datetime.now()
     updated_at: datetime = datetime.now()
 
@@ -38,6 +50,16 @@ class DownloadRequest(BaseModel):
 
 
 class DownloadResponse(BaseModel):
+    code: int = 0
+    message: str = "success"
+    data: Optional[Dict[str, Any]] = None
+
+
+class ParseRequest(BaseModel):
+    url: str
+
+
+class ParseResponse(BaseModel):
     code: int = 0
     message: str = "success"
     data: Optional[Dict[str, Any]] = None
