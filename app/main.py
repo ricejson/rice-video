@@ -1,7 +1,15 @@
+from pathlib import Path
+from dotenv import load_dotenv
+
+# 加载 .env 文件
+env_path = Path(__file__).resolve().parent.parent / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import download, task, subscribe, parse
+from app.api import download, task, subscribe, parse, summarize
 
 app = FastAPI(
     title="万能视频下载器 API",
@@ -23,6 +31,7 @@ app.include_router(download.router)
 app.include_router(task.router)
 app.include_router(subscribe.router)
 app.include_router(parse.router)
+app.include_router(summarize.router)
 
 
 @app.get("/")

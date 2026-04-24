@@ -65,5 +65,37 @@ class ParseResponse(BaseModel):
     data: Optional[Dict[str, Any]] = None
 
 
+class SummarizeRequest(BaseModel):
+    url: str
+    formats: list = ["text", "mindmap", "chat"]
+
+
+class ChatRequest(BaseModel):
+    task_id: str
+    question: str
+
+
+class SummaryTask(BaseModel):
+    task_id: str
+    url: str
+    status: TaskStatus = TaskStatus.PENDING
+    # 字幕相关
+    subtitles_available: bool = False
+    subtitles: list = []
+    subtitle_text: Optional[str] = None
+    subtitle_with_timestamps: Optional[str] = None  # 带时间戳的原始字幕
+    # 总结结果
+    summary_text: Optional[str] = None
+    summary_mindmap: Optional[Dict[str, Any]] = None
+    # 对话上下文
+    chat_history: list = []
+    error: Optional[str] = None
+    created_at: datetime = datetime.now()
+    updated_at: datetime = datetime.now()
+
+    class Config:
+        use_enum_values = True
+
+
 def create_task_id() -> str:
     return str(uuid.uuid4())

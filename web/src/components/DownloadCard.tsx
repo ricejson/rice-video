@@ -3,9 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import ProgressBar from "./ProgressBar";
 import VideoPreviewCard from "./VideoPreviewCard";
+import SummaryCard from "./SummaryCard";
 
 interface TaskProgress {
   task_id: string;
+  url: string;
   status: string;
   progress: number;
   speed?: string;
@@ -37,11 +39,14 @@ export default function DownloadCard() {
   const [url, setUrl] = useState("");
   const [stage, setStage] = useState<Stage>("input");
   const [loading, setLoading] = useState(false);
+  const [summarizeLoading, setSummarizeLoading] = useState(false);
   const [task, setTask] = useState<TaskProgress | null>(null);
   const [error, setError] = useState("");
   const [selectedEntries, setSelectedEntries] = useState<number[]>([]);
   const [downloadTaskId, setDownloadTaskId] = useState<string | null>(null); // 单独保存下载任务的ID
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const [summaryResult, setSummaryResult] = useState<any>(null);
+  const [summaryTaskId, setSummaryTaskId] = useState<string | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const maxRetries = 2;
   const retryDelay = 2000;
 
@@ -80,7 +85,7 @@ export default function DownloadCard() {
 
         const taskId = data.data.task_id;
         setStage("parsing");
-        setTask({ task_id: taskId, status: "parsing", progress: 0, is_playlist: false, entries: [], playlist_count: 0 });
+        setTask({ task_id: taskId, url: url, status: "parsing", progress: 0, is_playlist: false, entries: [], playlist_count: 0 });
 
         await pollParseResult(taskId);
         return;
@@ -109,7 +114,7 @@ export default function DownloadCard() {
             setTask(progress as TaskProgress);
 
             if (progress.status === "parsed") {
-              clearInterval(pollingRef.current);
+              if (pollingRef.current) clearInterval(pollingRef.current);
               pollingRef.current = null;
               setStage("parsed");
               setLoading(false);
@@ -118,7 +123,7 @@ export default function DownloadCard() {
               }
               resolve();
             } else if (progress.status === "failed") {
-              clearInterval(pollingRef.current);
+              if (pollingRef.current) clearInterval(pollingRef.current);
               pollingRef.current = null;
               setError(progress.error || "解析失败");
               setStage("input");
@@ -181,7 +186,7 @@ export default function DownloadCard() {
             );
 
             if (progress.status === "finished" || progress.status === "failed") {
-              clearInterval(pollingRef.current);
+              if (pollingRef.current) clearInterval(pollingRef.current);
               pollingRef.current = null;
               setLoading(false);
             }
@@ -204,9 +209,12 @@ export default function DownloadCard() {
     }
     setStage("input");
     setLoading(false);
+    setSummarizeLoading(false);
     setTask(null);
     setSelectedEntries([]);
     setDownloadTaskId(null);
+    setSummaryResult(null);
+    setSummaryTaskId(null);
     setError("");
   };
 
@@ -272,6 +280,83 @@ export default function DownloadCard() {
     }
   };
 
+  const handleSummarize = async () => {
+    console.log("handleSummarize called, task:", task);
+    if (!task) {
+      console.log("task is null, returning");
+      return;
+    }
+    if (!task.url) {
+      console.log("task.url is empty, returning");
+      setError("视频信息不完整，请重新解析");
+      return;
+    }
+
+    // 防止重复点击
+    if (summarizeLoading) {
+      console.log("summarizeLoading is true, returning");
+      return;
+    }
+
+    setSummarizeLoading(true);
+    setError("");
+
+    try {
+      console.log("Sending summarize request for URL:", task.url);
+      const res = await fetch("/api/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: task.url,
+          formats: ["text", "mindmap", "chat"]
+        })
+      });
+
+      const data = await res.json();
+      if (data.code !== 0) {
+        throw new Error(data.message || "提交总结任务失败");
+      }
+
+      const sumTaskId = data.data.task_id;
+      setSummaryTaskId(sumTaskId);
+
+      // 轮询总结结果
+      pollingRef.current = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/summarize/${sumTaskId}`);
+          const statusData = await statusRes.json();
+
+          if (statusData.code === 0 && statusData.data) {
+            const result = statusData.data;
+
+            if (result.status === "finished") {
+              if (pollingRef.current) clearInterval(pollingRef.current);
+              pollingRef.current = null;
+              setSummaryResult(result.result);
+              setSummarizeLoading(false);
+            } else if (result.status === "failed") {
+              if (pollingRef.current) clearInterval(pollingRef.current);
+              pollingRef.current = null;
+              setError(result.error || "总结生成失败");
+              setSummarizeLoading(false);
+            }
+          }
+        } catch (e: any) {
+          console.error("轮询错误:", e);
+        }
+      }, 2000);
+
+    } catch (err: any) {
+      setError(err.message || "总结失败");
+      setSummarizeLoading(false);
+    }
+  };
+
+  const handleCloseSummary = () => {
+    setSummaryResult(null);
+    setSummaryTaskId(null);
+  };
+
   // 解析中状态
   if (stage === "parsing") {
     return (
@@ -307,10 +392,12 @@ export default function DownloadCard() {
         <VideoPreviewCard
           video={task as any}
           onDownload={handleDownload}
+          onSummarize={handleSummarize}
           onCancel={handleCancel}
           selectedEntries={selectedEntries}
           onEntryToggle={handleEntryToggle}
           loading={loading}
+          summarizeLoading={summarizeLoading}
         />
 
         {/* 下载进度条 - 显示在预览卡片下方 */}
@@ -357,11 +444,31 @@ export default function DownloadCard() {
         <VideoPreviewCard
           video={task as any}
           onDownload={handleDownload}
+          onSummarize={handleSummarize}
           onCancel={handleCancel}
           selectedEntries={selectedEntries}
           onEntryToggle={handleEntryToggle}
           loading={loading}
+          summarizeLoading={summarizeLoading}
         />
+
+        {/* 错误提示 */}
+        {error && (
+          <div className="mt-4 px-4 py-3 bg-red-50 text-red-600 rounded-xl text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* 总结结果展示 */}
+        {summaryResult && summaryTaskId && (
+          <SummaryCard
+            taskId={summaryTaskId}
+            textSummary={summaryResult.text_summary}
+            mindmap={summaryResult.mindmap}
+            transcript={summaryResult.subtitle_with_timestamps}
+            onClose={handleCloseSummary}
+          />
+        )}
       </div>
     );
   }
