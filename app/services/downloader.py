@@ -1,7 +1,7 @@
 import yt_dlp
 import asyncio
 import uuid
-from typing import AsyncGenerator, Dict, Any, Optional
+from typing import Dict, Any, Optional
 from pathlib import Path
 from datetime import datetime
 import threading
@@ -80,8 +80,8 @@ class VideoDownloader:
         quality: str = "best",
         subtitles: bool = False,
         translate: bool = False
-    ) -> AsyncGenerator[Dict[str, Any], None]:
-        """异步下载视频，实时推送进度"""
+    ) -> None:
+        """异步下载视频，进度通过 update_task 写入内存"""
 
         self.update_task(task_id, status=TaskStatus.DOWNLOADING)
 
@@ -167,20 +167,8 @@ class VideoDownloader:
                 title=info.get('title', 'unknown') if info else 'unknown',
                 filename=f"{task_id}.mp4"
             )
-
-            yield {
-                "status": "finished",
-                "task_id": task_id,
-                "filename": f"{task_id}.mp4",
-                "title": info.get('title', 'unknown') if info else 'unknown',
-            }
         except Exception as e:
             self.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
-            yield {
-                "status": "failed",
-                "task_id": task_id,
-                "error": str(e)
-            }
 
     @staticmethod
     def _format_speed(speed: float) -> str:

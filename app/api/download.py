@@ -1,9 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
-from sse_starlette.sse import EventSourceResponse
+from fastapi.responses import FileResponse
 import asyncio
-import json
-from typing import AsyncGenerator
 
 from app.models.task import DownloadRequest, DownloadResponse, TaskStatus
 from app.services.downloader import downloader
@@ -43,14 +40,13 @@ async def _run_download(
     translate: bool
 ):
     """运行下载任务"""
-    async for _ in downloader.download(
+    await downloader.download(
         url=url,
         task_id=task_id,
         quality=quality,
         subtitles=subtitles,
         translate=translate
-    ):
-        pass
+    )
 
 
 @router.get("/status/{task_id}", response_model=DownloadResponse)
@@ -65,29 +61,6 @@ async def get_task_status(task_id: str):
         message="success",
         data=downloader.get_progress(task_id)
     )
-
-
-@router.get("/progress/{task_id}")
-async def get_download_progress(task_id: str):
-    """获取下载进度（Server-Sent Events）"""
-
-    async def event_generator() -> AsyncGenerator[dict, None]:
-        while True:
-            task = downloader.get_task(task_id)
-            if not task:
-                yield {"event": "error", "data": json.dumps({"error": "Task not found"})}
-                break
-
-            progress = downloader.get_progress(task_id)
-            yield {"event": "progress", "data": json.dumps(progress)}
-
-            if task.status in [TaskStatus.FINISHED, TaskStatus.FAILED]:
-                yield {"event": "done", "data": json.dumps(progress)}
-                break
-
-            await asyncio.sleep(0.5)
-
-    return EventSourceResponse(event_generator())
 
 
 @router.get("/file/{task_id}")
