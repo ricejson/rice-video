@@ -176,6 +176,23 @@ class VideoSummarizer:
             print(f"下载字幕失败: {e}")
         return ""
 
+    def _build_summary_prompt(self, text: str) -> str:
+        """构建总结 prompt"""
+        max_chars = 8000
+        if len(text) > max_chars:
+            text = text[:max_chars]
+
+        return f"""请对以下视频字幕进行总结，生成简洁的中文摘要：
+
+{text}
+
+请按以下格式输出：
+1. 一句话概括视频主题
+2. 3-5个核心要点（用数字列表）
+3. 适合人群
+
+请用中文回答。"""
+
     async def generate_text_summary(self, text: str) -> str:
         """调用阿里云百炼生成文本总结"""
 
@@ -186,21 +203,7 @@ class VideoSummarizer:
         if not self.api_key:
             return "无法生成总结：阿里云 API Key 未配置。请在环境变量中设置 ALIYUN_API_KEY"
 
-        # 截断过长的文本
-        max_chars = 8000
-        if len(text) > max_chars:
-            text = text[:max_chars]
-
-        prompt = f"""请对以下视频字幕进行总结，生成简洁的中文摘要：
-
-{text}
-
-请按以下格式输出：
-1. 一句话概括视频主题
-2. 3-5个核心要点（用数字列表）
-3. 适合人群
-
-请用中文回答。"""
+        prompt = self._build_summary_prompt(text)
 
         try:
             response = Generation.call(
@@ -220,6 +223,68 @@ class VideoSummarizer:
             if "No API-key" in error_msg or "api_key" in error_msg.lower():
                 return "无法生成总结：阿里云 API Key 未配置或无效。请在环境变量中设置 ALIYUN_API_KEY"
             return f"调用AI服务失败: {error_msg}"
+
+    async def generate_text_summary_stream(self, text: str):
+        """流式调用阿里云百炼生成文本总结，yield 增量文本块"""
+        import queue
+        import threading
+
+        if not text or not text.strip():
+            yield "无法生成总结：没有可用的字幕内容"
+            return
+
+        if not self.api_key:
+            yield "无法生成总结：阿里云 API Key 未配置。请在环境变量中设置 ALIYUN_API_KEY"
+            return
+
+        prompt = self._build_summary_prompt(text)
+        print(f"[流式总结] 开始调用 DashScope 流式 API, prompt 长度: {len(prompt)}")
+
+        loop = asyncio.get_event_loop()
+        chunk_queue: queue.Queue = queue.Queue()
+
+        def sync_stream():
+            try:
+                responses = Generation.call(
+                    model='qwen-max',
+                    prompt=prompt,
+                    temperature=0.7,
+                    top_p=0.8,
+                    stream=True,
+                    incremental_output=True
+                )
+                print(f"[流式总结] Generation.call 返回, 类型: {type(responses)}")
+                chunk_count = 0
+                for response in responses:
+                    if response.status_code == 200:
+                        text_chunk = response.output.text
+                        if text_chunk:
+                            chunk_count += 1
+                            chunk_queue.put(text_chunk)
+                    else:
+                        print(f"[流式总结] API 错误: {response.status_code} {response.message}")
+                        chunk_queue.put(f"\n[生成失败: {response.message}]")
+                        break
+                print(f"[流式总结] 完成, 共 {chunk_count} 个文本块")
+            except Exception as e:
+                print(f"[流式总结] 异常: {e}")
+                chunk_queue.put(f"\n[调用AI服务失败: {str(e)}]")
+            finally:
+                chunk_queue.put(None)  # 结束标记
+
+        thread = threading.Thread(target=sync_stream, daemon=True)
+        thread.start()
+
+        while True:
+            try:
+                chunk = await loop.run_in_executor(None, chunk_queue.get)
+                if chunk is None:
+                    break
+                yield chunk
+            except Exception as e:
+                print(f"[流式总结] 读取队列失败: {e}")
+                yield f"\n[流式读取失败: {str(e)}]"
+                break
 
     async def generate_mindmap(self, text: str) -> Dict[str, Any]:
         """调用阿里云百炼生成思维导图结构"""

@@ -207,6 +207,14 @@ export default function DownloadCard() {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
     }
+    if (summarizeAbortRef.current) {
+      summarizeAbortRef.current.abort();
+      summarizeAbortRef.current = null;
+    }
+    if (typewriterTimerRef.current) {
+      clearInterval(typewriterTimerRef.current);
+      typewriterTimerRef.current = null;
+    }
     setStage("input");
     setLoading(false);
     setSummarizeLoading(false);
@@ -280,81 +288,211 @@ export default function DownloadCard() {
     }
   };
 
+  const summarizeAbortRef = useRef<AbortController | null>(null);
+  const typewriterTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const handleSummarize = async () => {
-    console.log("handleSummarize called, task:", task);
-    if (!task) {
-      console.log("task is null, returning");
-      return;
-    }
+    if (!task) return;
     if (!task.url) {
-      console.log("task.url is empty, returning");
       setError("视频信息不完整，请重新解析");
       return;
     }
+    if (summarizeLoading) return;
 
-    // 防止重复点击
-    if (summarizeLoading) {
-      console.log("summarizeLoading is true, returning");
-      return;
+    // 清理旧的打字机定时器
+    if (typewriterTimerRef.current) {
+      clearInterval(typewriterTimerRef.current);
+      typewriterTimerRef.current = null;
     }
 
     setSummarizeLoading(true);
     setError("");
+    setSummaryResult(null);
+    // 不清理 summaryTaskId，避免 SummaryCard 卸载导致黑屏闪烁
+
+    // 创建 AbortController 用于超时/取消
+    const controller = new AbortController();
+    summarizeAbortRef.current = controller;
 
     try {
-      console.log("Sending summarize request for URL:", task.url);
-      const res = await fetch("/api/summarize", {
+      // SSE 流式请求必须绕过 Next.js 代理（代理会缓冲导致失去流式效果）
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${apiBase}/api/summarize/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           url: task.url,
           formats: ["text", "mindmap", "chat"]
-        })
+        }),
+        signal: controller.signal,
       });
 
-      const data = await res.json();
-      if (data.code !== 0) {
-        throw new Error(data.message || "提交总结任务失败");
+      if (!res.ok) {
+        throw new Error(`请求失败: ${res.status}`);
       }
 
-      const sumTaskId = data.data.task_id;
-      setSummaryTaskId(sumTaskId);
+      const reader = res.body?.getReader();
+      if (!reader) {
+        throw new Error("无法读取响应流");
+      }
 
-      // 轮询总结结果
-      pollingRef.current = setInterval(async () => {
-        try {
-          const statusRes = await fetch(`/api/summarize/${sumTaskId}`);
-          const statusData = await statusRes.json();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      // 用 ref 保存完整文本，避免闭包问题
+      const fullTextRef = { current: "" };
+      let currentTaskId = "";
+      let timestamps = "";
+      let mindmapData: any = null;
+      let isDone = false;
+      // 用 ref 控制打字机，避免 re-render 时丢失
+      const displayedRef = { current: "" };
 
-          if (statusData.code === 0 && statusData.data) {
-            const result = statusData.data;
+      // 启动打字机效果的定时器
+      const startTypewriter = () => {
+        if (typewriterTimerRef.current) return; // 已经在运行
+        typewriterTimerRef.current = setInterval(() => {
+          const full = fullTextRef.current;
+          const displayed = displayedRef.current;
+          if (displayed.length >= full.length) {
+            // 打字完成，清除定时器
+            if (typewriterTimerRef.current) {
+              clearInterval(typewriterTimerRef.current);
+              typewriterTimerRef.current = null;
+            }
+            return;
+          }
+          // 每次多显示 5 个字符
+          const nextLen = Math.min(displayed.length + 5, full.length);
+          const newDisplayed = full.substring(0, nextLen);
+          displayedRef.current = newDisplayed;
+          setSummaryResult((prev: any) => ({
+            ...prev,
+            text_summary: newDisplayed,
+            subtitle_with_timestamps: prev?.subtitle_with_timestamps || timestamps,
+          }));
+        }, 30);
+      };
 
-            if (result.status === "finished") {
-              if (pollingRef.current) clearInterval(pollingRef.current);
-              pollingRef.current = null;
-              setSummaryResult(result.result);
-              setSummarizeLoading(false);
-            } else if (result.status === "failed") {
-              if (pollingRef.current) clearInterval(pollingRef.current);
-              pollingRef.current = null;
-              setError(result.error || "总结生成失败");
-              setSummarizeLoading(false);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          console.log("[SSE] 流结束");
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        buffer += chunk;
+
+        // 按双换行分割 SSE 事件
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() || "";
+
+        for (const part of parts) {
+          if (!part.trim()) continue;
+
+          const lines = part.split("\n");
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const event = JSON.parse(line.slice(6));
+
+                if (event.type === "status") {
+                  currentTaskId = event.task_id || currentTaskId;
+                  setSummaryTaskId(currentTaskId);
+                  if (event.subtitle_with_timestamps) {
+                    timestamps = event.subtitle_with_timestamps;
+                  }
+                } else if (event.type === "chunk") {
+                  currentTaskId = event.task_id || currentTaskId;
+                  fullTextRef.current += event.content;
+                  setSummaryTaskId(currentTaskId);
+                  // 启动打字机效果
+                  startTypewriter();
+                } else if (event.type === "mindmap") {
+                  mindmapData = event.data;
+                  setSummaryResult((prev: any) => ({
+                    ...prev,
+                    mindmap: mindmapData,
+                    subtitle_with_timestamps: prev?.subtitle_with_timestamps || timestamps,
+                  }));
+                } else if (event.type === "done") {
+                  console.log("[SSE] 文本完成, 总长度:", fullTextRef.current.length);
+                  isDone = true;
+                  // 确保打字机跑完
+                  displayedRef.current = fullTextRef.current;
+                  setSummaryResult((prev: any) => ({
+                    ...prev,
+                    text_summary: fullTextRef.current,
+                    mindmap: prev?.mindmap || mindmapData,
+                    subtitle_with_timestamps: prev?.subtitle_with_timestamps || timestamps,
+                  }));
+                  setSummaryTaskId(event.task_id || currentTaskId);
+                  setSummarizeLoading(false);
+                  // 清除打字机定时器
+                  if (typewriterTimerRef.current) {
+                    clearInterval(typewriterTimerRef.current);
+                    typewriterTimerRef.current = null;
+                  }
+                } else if (event.type === "error") {
+                  console.error("[SSE] 错误:", event.message);
+                  setError(event.message || "总结生成失败");
+                  setSummarizeLoading(false);
+                }
+              } catch (e) {
+                buffer = line + "\n" + buffer;
+              }
+            } else if (line.trim()) {
+              buffer = line + "\n" + buffer;
             }
           }
-        } catch (e: any) {
-          console.error("轮询错误:", e);
         }
-      }, 2000);
+      }
 
+      // reader 意外结束
+      if (!isDone) {
+        setSummarizeLoading(false);
+        if (fullTextRef.current) {
+          setSummaryResult((prev: any) => ({
+            ...prev,
+            text_summary: fullTextRef.current,
+            subtitle_with_timestamps: prev?.subtitle_with_timestamps || timestamps,
+          }));
+          if (typewriterTimerRef.current) {
+            clearInterval(typewriterTimerRef.current);
+            typewriterTimerRef.current = null;
+          }
+        } else {
+          setError("AI 总结生成中断，请重试");
+        }
+      }
     } catch (err: any) {
-      setError(err.message || "总结失败");
+      if (err.name === "AbortError") {
+        setError("AI 总结超时，请重试");
+      } else {
+        setError(err.message || "总结失败");
+      }
       setSummarizeLoading(false);
+    } finally {
+      summarizeAbortRef.current = null;
+      if (typewriterTimerRef.current) {
+        clearInterval(typewriterTimerRef.current);
+        typewriterTimerRef.current = null;
+      }
     }
   };
 
   const handleCloseSummary = () => {
+    if (summarizeAbortRef.current) {
+      summarizeAbortRef.current.abort();
+      summarizeAbortRef.current = null;
+    }
+    if (typewriterTimerRef.current) {
+      clearInterval(typewriterTimerRef.current);
+      typewriterTimerRef.current = null;
+    }
     setSummaryResult(null);
     setSummaryTaskId(null);
+    setSummarizeLoading(false);
   };
 
   // 解析中状态
@@ -460,12 +598,13 @@ export default function DownloadCard() {
         )}
 
         {/* 总结结果展示 */}
-        {summaryResult && summaryTaskId && (
+        {(summaryResult || summarizeLoading) && summaryTaskId && (
           <SummaryCard
             taskId={summaryTaskId}
-            textSummary={summaryResult.text_summary}
-            mindmap={summaryResult.mindmap}
-            transcript={summaryResult.subtitle_with_timestamps}
+            textSummary={summaryResult?.text_summary}
+            mindmap={summaryResult?.mindmap}
+            transcript={summaryResult?.subtitle_with_timestamps}
+            isStreaming={summarizeLoading}
             onClose={handleCloseSummary}
           />
         )}

@@ -9,6 +9,7 @@ interface SummaryCardProps {
   textSummary?: string;
   mindmap?: any;
   transcript?: string;
+  isStreaming?: boolean;
   onClose: () => void;
 }
 
@@ -17,6 +18,7 @@ export default function SummaryCard({
   textSummary,
   mindmap,
   transcript,
+  isStreaming = false,
   onClose
 }: SummaryCardProps) {
   const [activeTab, setActiveTab] = useState<"summary" | "mindmap" | "chat" | "transcript">("summary");
@@ -87,12 +89,23 @@ export default function SummaryCard({
         </div>
 
         {/* 内容区域 */}
-        <div className="min-h-[250px] max-h-[400px] overflow-y-auto">
+        <div className="min-h-[250px] max-h-[600px] overflow-y-auto">
           {activeTab === "summary" && (
             <div className="prose prose-blue max-w-none">
               {textSummary ? (
                 <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
                   {textSummary}
+                  {isStreaming && (
+                    <span className="inline-block w-2 h-5 bg-blue-500 ml-0.5 align-middle animate-pulse rounded-sm" />
+                  )}
+                </div>
+              ) : isStreaming ? (
+                <div className="text-gray-500 text-center py-8">
+                  <div className="flex gap-1 justify-center">
+                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
                 </div>
               ) : (
                 <div className="text-gray-500 text-center py-8">
@@ -103,9 +116,7 @@ export default function SummaryCard({
           )}
 
           {activeTab === "mindmap" && mindmap && (
-            <div className="overflow-x-auto pb-4">
-              <MindMapViewer data={mindmap} />
-            </div>
+            <MindMapViewer data={mindmap} />
           )}
 
           {activeTab === "mindmap" && !mindmap && (
@@ -124,17 +135,39 @@ export default function SummaryCard({
                 <>
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-gray-500">原始字幕，包含时间戳信息</p>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(transcript);
-                      }}
-                      className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition-all flex items-center gap-1"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                      复制
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(transcript);
+                        }}
+                        className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition-all flex items-center gap-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        复制
+                      </button>
+                      <button
+                        onClick={() => {
+                          const blob = new Blob([transcript], { type: 'text/plain;charset=utf-8' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `字幕_${new Date().toISOString().slice(0, 10)}.srt`;
+                          a.style.display = 'none';
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        }}
+                        className="px-3 py-1.5 text-sm bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-lg transition-all flex items-center gap-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        下载
+                      </button>
+                    </div>
                   </div>
                   <pre className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded-xl p-4 max-h-[350px] overflow-y-auto font-mono leading-relaxed">
                     {transcript}

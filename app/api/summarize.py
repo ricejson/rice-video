@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 import asyncio
+import json
 from typing import List
 
 from app.models.task import SummarizeRequest, ChatRequest, SummaryTask, TaskStatus, ParseResponse, create_task_id
@@ -108,6 +110,77 @@ async def _run_summarize(task_id: str, url: str, formats: List[str]):
 
     except Exception as e:
         update_task(task_id, status=TaskStatus.FAILED, error=str(e))
+
+
+@router.post("/stream")
+async def create_summarize_stream(req: SummarizeRequest):
+    """提交视频总结任务 - SSE 流式输出文本总结"""
+
+    task_id = create_task_id()
+    summary_tasks[task_id] = SummaryTask(
+        task_id=task_id,
+        url=req.url,
+        status=TaskStatus.PENDING
+    )
+
+    async def event_generator():
+        try:
+            # 1. 状态：开始提取字幕
+            yield f"data: {json.dumps({'type': 'status', 'message': '正在提取字幕...', 'task_id': task_id})}\n\n"
+
+            sub_info = await summarizer.extract_subtitles(req.url, task_id)
+
+            if not sub_info['subtitles_available']:
+                yield f"data: {json.dumps({'type': 'error', 'message': '该视频没有可用字幕'})}\n\n"
+                return
+
+            subtitle_text = sub_info.get('subtitle_text', '')
+            subtitle_with_timestamps = sub_info.get('subtitle_with_timestamps', '')
+
+            # 保存总结任务
+            summary_tasks[task_id].subtitle_text = subtitle_text
+            summary_tasks[task_id].subtitle_with_timestamps = subtitle_with_timestamps
+            summary_tasks[task_id].subtitles_available = True
+            summary_tasks[task_id].status = TaskStatus.PARSING
+
+            yield f"data: {json.dumps({'type': 'status', 'message': '正在生成AI总结...', 'task_id': task_id, 'subtitle_with_timestamps': subtitle_with_timestamps})}\n\n"
+
+            # 2. 流式生成文本总结
+            full_text = ""
+            async for chunk in summarizer.generate_text_summary_stream(subtitle_text):
+                full_text += chunk
+                yield f"data: {json.dumps({'type': 'chunk', 'content': chunk, 'task_id': task_id})}\n\n"
+
+            # 保存文本总结
+            summary_tasks[task_id].summary_text = full_text
+
+            # 先发送 done，结束 loading 状态
+            summary_tasks[task_id].status = TaskStatus.FINISHED
+            yield f"data: {json.dumps({'type': 'done', 'task_id': task_id, 'full_text': full_text})}\n\n"
+
+            # 3. 再异步生成思维导图（不阻塞文本展示）
+            if 'mindmap' in req.formats:
+                try:
+                    mindmap = await summarizer.generate_mindmap(subtitle_text)
+                    summary_tasks[task_id].summary_mindmap = mindmap
+                    yield f"data: {json.dumps({'type': 'mindmap', 'data': mindmap, 'task_id': task_id})}\n\n"
+                except Exception as e:
+                    print(f"思维导图生成失败: {e}")
+
+        except Exception as e:
+            summary_tasks[task_id].status = TaskStatus.FAILED
+            summary_tasks[task_id].error = str(e)
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
 
 
 @router.get("/{task_id}", response_model=ParseResponse)
