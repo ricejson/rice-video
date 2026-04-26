@@ -172,9 +172,9 @@ export default function MindMapViewer({ data }: MindMapViewerProps) {
 
   // --- 交互处理 ---
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.target !== e.currentTarget) return; // 只在空白区域拖动
     isPanning.current = true;
     lastMouse.current = { x: e.clientX, y: e.clientY };
+    e.preventDefault();
   }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {

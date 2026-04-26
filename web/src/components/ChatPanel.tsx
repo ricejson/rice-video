@@ -20,10 +20,12 @@ export default function ChatPanel({ taskId }: ChatPanelProps) {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
   };
 
   useEffect(() => {
@@ -61,7 +63,7 @@ export default function ChatPanel({ taskId }: ChatPanelProps) {
   return (
     <div className="flex flex-col h-[350px]">
       {/* 消息列表 */}
-      <div className="flex-1 overflow-y-auto space-y-4 mb-4 custom-scrollbar">
+      <div ref={containerRef} className="flex-1 overflow-y-auto space-y-4 mb-4 custom-scrollbar">
         {messages.map((msg, i) => (
           <div
             key={i}
@@ -89,7 +91,6 @@ export default function ChatPanel({ taskId }: ChatPanelProps) {
             </div>
           </div>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* 输入框 */}

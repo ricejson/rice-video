@@ -6,8 +6,8 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       <Header />
-      <main className="flex-1 flex flex-col items-center justify-center px-8 py-16">
-        <div className="w-full max-w-5xl mx-auto space-y-24">
+      <main className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+        <div className="w-full max-w-7xl mx-auto space-y-16">
           <DownloadCard />
           <PricingCard />
         </div>

@@ -10,7 +10,6 @@ interface SummaryCardProps {
   mindmap?: any;
   transcript?: string;
   isStreaming?: boolean;
-  onClose: () => void;
 }
 
 export default function SummaryCard({
@@ -19,30 +18,17 @@ export default function SummaryCard({
   mindmap,
   transcript,
   isStreaming = false,
-  onClose
 }: SummaryCardProps) {
   const [activeTab, setActiveTab] = useState<"summary" | "mindmap" | "chat" | "transcript">("summary");
 
   return (
-    <div className="mt-6 space-y-4">
-      {/* 总结结果卡片 */}
-      <div className="backdrop-blur-2xl bg-white/70 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.08)] p-8 border border-white/20">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <span className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white text-sm">
-              AI
-            </span>
-            视频总结
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+    <div className="backdrop-blur-2xl bg-white/70 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.08)] p-6 border border-white/20">
+      <div className="flex items-center gap-2 mb-5">
+        <span className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white text-sm font-bold">
+          AI
+        </span>
+        <h3 className="text-lg font-bold text-gray-900">视频总结</h3>
+      </div>
 
         {/* Tab 切换 */}
         <div className="flex gap-2 mb-6">
@@ -120,8 +106,27 @@ export default function SummaryCard({
           )}
 
           {activeTab === "mindmap" && !mindmap && (
-            <div className="text-gray-500 text-center py-8">
-              暂无思维导图内容
+            <div className="text-center py-12">
+              {isStreaming ? (
+                <div className="space-y-4">
+                  <div className="w-12 h-12 mx-auto bg-gradient-to-r from-indigo-400 to-purple-500 rounded-xl flex items-center justify-center animate-pulse">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-gray-700 font-medium">思维导图生成中...</p>
+                    <p className="text-gray-400 text-sm">AI 正在分析视频内容并构建知识结构</p>
+                  </div>
+                  <div className="flex gap-1 justify-center">
+                    <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-gray-500">暂无思维导图内容</div>
+              )}
             </div>
           )}
 
@@ -181,7 +186,7 @@ export default function SummaryCard({
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 }
+

@@ -77,6 +77,7 @@ rice-video/
 │   ├── main.py              # FastAPI 后端入口
 │   ├── api/
 │   │   ├── download.py      # 下载相关接口
+│   │   ├── parse.py         # 解析相关接口（新增）
 │   │   ├── task.py          # 任务状态接口
 │   │   └── subscribe.py    # 订阅相关接口
 │   ├── services/
@@ -88,14 +89,17 @@ rice-video/
 │       ├── config.py        # 配置管理
 │       └── security.py      # JWT 安全
 ├── web/                     # 前端 (Next.js)
-│   ├── app/
-│   │   ├── page.tsx         # 首页
-│   │   └── layout.tsx       # 布局
-│   ├── components/
-│   │   ├── DownloadCard.tsx
-│   │   ├── PricingCard.tsx
-│   │   ├── Header.tsx
-│   │   └── ProgressBar.tsx
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── page.tsx         # 首页
+│   │   │   └── layout.tsx       # 布局
+│   │   └── components/
+│   │       ├── DownloadCard.tsx      # 下载卡片（重构）
+│   │       ├── VideoPreviewCard.tsx   # 视频预览卡片（新增）
+│   │       ├── PlaylistSelector.tsx   # Playlist选择器（新增）
+│   │       ├── PricingCard.tsx
+│   │       ├── Header.tsx
+│   │       └── ProgressBar.tsx
 │   └── styles/
 │       └── globals.css
 ├── requirements.txt         # Python 依赖
@@ -263,6 +267,255 @@ download_executor = ThreadPoolExecutor(max_workers=3)
 FREE_MAX_CONCURRENT = 1
 PAID_MAX_CONCURRENT = 3
 ```
+
+#### 3.1.6 视频预览功能（解析 → 下载两阶段流程）
+
+##### 3.1.6.1 交互流程变更
+
+原流程（单阶段）：
+```
+用户输入URL → 点击"开始下载" → 下载完成
+```
+
+新流程（两阶段）：
+```
+用户输入URL → 点击"解析链接" → 展示视频信息卡片 → 点击"下载视频" → 下载完成
+```
+
+**状态流转**：
+```
+idle → parsing → parsed → downloading → finished
+         ↓           ↓
+       failed      failed
+```
+
+##### 3.1.6.2 新增 API 接口
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `POST /api/parse` | POST | 解析视频元数据（封面、标题、描述、时长等） |
+| `GET /api/parse/{task_id}` | GET | 获取解析结果（用于轮询） |
+
+**POST /api/parse 请求示例**：
+```json
+{
+  "url": "https://www.bilibili.com/video/BVxxx"
+}
+```
+
+**响应示例**：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "task_id": "uuid-xxx",
+    "url": "https://www.bilibili.com/video/BVxxx",
+    "title": "视频标题",
+    "thumbnail": "https://example.com/thumb.jpg",
+    "description": "视频描述内容...",
+    "duration": 3600,
+    "duration_str": "1:00:00",
+    "uploader": "作者名称",
+    "platform": "Bilibili",
+    "is_playlist": false,
+    "playlist_count": 1
+  }
+}
+```
+
+**Playlist 响应示例**：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "task_id": "uuid-xxx",
+    "url": "https://www.bilibili.com/video/BVxxx",
+    "title": "播放列表标题",
+    "thumbnail": "https://example.com/thumb.jpg",
+    "description": "播放列表描述...",
+    "duration": 7200,
+    "duration_str": "2:00:00（总计）",
+    "uploader": "作者名称",
+    "platform": "Bilibili",
+    "is_playlist": true,
+    "playlist_count": 10,
+    "entries": [
+      {
+        "index": 1,
+        "title": "第1P：标题1",
+        "duration": 720,
+        "duration_str": "12:00",
+        "thumbnail": "https://example.com/thumb1.jpg"
+      },
+      {
+        "index": 2,
+        "title": "第2P：标题2",
+        "duration": 1800,
+        "duration_str": "30:00",
+        "thumbnail": "https://example.com/thumb2.jpg"
+      }
+    ]
+  }
+}
+```
+
+##### 3.1.6.3 后端实现
+
+```python
+# app/services/downloader.py
+async def parse_video(
+    self,
+    url: str,
+    task_id: str
+) -> Dict[str, Any]:
+    """解析视频元数据，不下载"""
+
+    ydl_opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'cookiefrombrowser': ('chrome', None, None, None),
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        },
+        # 关键：不设置 outtmpl，不下载
+        'extract_flat': False,  # 展开 playlist
+    }
+
+    loop = asyncio.get_event_loop()
+
+    def sync_parse():
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                return info
+        except Exception as e:
+            self.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
+            raise
+
+    info = await loop.run_in_executor(download_executor, sync_parse)
+
+    # 提取基本信息
+    result = {
+        'task_id': task_id,
+        'url': url,
+        'title': info.get('title', '未知标题'),
+        'thumbnail': info.get('thumbnail'),
+        'description': info.get('description', ''),
+        'duration': info.get('duration', 0),
+        'duration_str': self._format_duration(info.get('duration', 0)),
+        'uploader': info.get('uploader', '未知作者'),
+        'platform': self._extract_platform(url),
+        'is_playlist': info.get('_type') == 'playlist',
+        'playlist_count': 0,
+        'entries': []
+    }
+
+    # 如果是 playlist，提取 entries
+    if result['is_playlist'] and 'entries' in info:
+        entries = info['entries'] or []
+        result['playlist_count'] = len(entries)
+        result['entries'] = [
+            {
+                'index': i + 1,
+                'title': entry.get('title', f'视频{i+1}'),
+                'duration': entry.get('duration', 0),
+                'duration_str': self._format_duration(entry.get('duration', 0)),
+                'thumbnail': entry.get('thumbnail')
+            }
+            for i, entry in enumerate(entries[:50])  # 最多取50个
+        ]
+
+    self.update_task(task_id, status=TaskStatus.PARSED)
+    return result
+```
+
+##### 3.1.6.4 前端组件设计
+
+**新增组件**：`VideoPreviewCard.tsx`
+
+功能：
+- 展示视频封面（16:9 比例）
+- 展示视频标题（单行截断）
+- 展示视频描述（最多3行，可展开/收起）
+- 展示视频时长（格式：HH:MM:SS）
+- 展示平台和作者信息
+- Playlist 时展示视频数量和列表
+
+**按钮文案变更**：
+
+| 当前 | 解析阶段 | 下载阶段 |
+|------|----------|----------|
+| "开始下载" | "解析链接" | "下载视频" |
+
+##### 3.1.6.5 UI 布局
+
+```
+┌─────────────────────────────────────────────────┐
+│  [URL 输入框                                    ] │
+│  [解析链接                ]                      │
+├─────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────┐   │
+│  │ [封面图片 16:9]                          │   │
+│  │                                          │   │
+│  │ 视频标题                    01:30:00    │   │
+│  │ 平台：哔哩哔哩  作者：xxx                │   │
+│  │                                          │   │
+│  │ 视频描述...（最多显示3行，可展开）        │   │
+│  │                                          │   │
+│  │              [下载视频]  [取消]           │   │
+│  └─────────────────────────────────────────┘   │
+│                                                  │
+│  Playlist 模式时额外展示：                        │
+│  ┌─────────────────────────────────────────┐   │
+│  │ 📋 播放列表（共10个视频）                 │   │
+│  │ ☑ 1. 第1P：标题1          12:00          │   │
+│  │ ☑ 2. 第2P：标题2          30:00          │   │
+│  │ ☐ 3. 第3P：标题3          15:00          │   │
+│  │ ...                                      │   │
+│  │              [下载选中]  [下载全部]        │   │
+│  └─────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────┘
+```
+
+##### 3.1.6.6 重试机制
+
+- 解析失败后自动重试 **2 次**
+- 每次重试间隔 **2 秒**
+- 2 次重试后仍失败，显示错误提示，允许用户重新输入 URL
+
+```typescript
+const MAX_RETRIES = 2;
+const RETRY_DELAY = 2000;
+
+const handleParse = async () => {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch('/api/parse', { method: 'POST', body: JSON.stringify({ url }) });
+      if (res.ok) return; // 成功
+    } catch (e) {
+      if (attempt < MAX_RETRIES) {
+        await sleep(RETRY_DELAY); // 等待后重试
+      }
+    }
+  }
+  // 全部失败，显示错误
+  setError('解析失败，请检查链接是否有效');
+};
+```
+
+##### 3.1.6.7 修改文件清单
+
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `app/api/parse.py` | 新增 | 解析接口 |
+| `app/services/downloader.py` | 修改 | 新增 `parse_video` 方法 |
+| `app/models/task.py` | 修改 | 新增解析相关字段 |
+| `web/src/components/DownloadCard.tsx` | 重构 | 拆分为解析+下载两阶段 |
+| `web/src/components/VideoPreviewCard.tsx` | 新增 | 视频预览卡片组件 |
+| `web/src/components/PlaylistSelector.tsx` | 新增 | Playlist 选择器组件 |
 
 ### 3.2 字幕处理模块（P1）
 
@@ -702,8 +955,18 @@ const handleDownloadFile = async () => {
 - [x] 视频编码兼容 QuickTime (H.264)
 - [x] Bilibili 下载支持（需 Chrome Cookie）
 
+### 10.2 Phase 1.5 验收（视频预览功能）
+
+- [ ] 能通过"解析链接"获取视频元数据
+- [ ] 视频预览卡片展示封面、标题、描述、时长
+- [ ] 视频描述最多显示3行，可展开/收起
+- [ ] 解析失败自动重试2次后仍失败则提示错误
+- [ ] 支持 Playlist 解析，显示视频数量
+- [ ] Playlist 模式下可选择下载全部或部分视频
+- [ ] 按钮文案正确切换（"解析链接" / "下载视频"）
+
 ---
 
-> **文档状态**：Phase 1 开发完成，已验证
+> **文档状态**：Phase 1 开发完成，Phase 1.5（视频预览功能）待开发
 >
-> 更新日期：2026-04-19
+> 更新日期：2026-04-24
