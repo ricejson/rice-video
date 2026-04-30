@@ -1,5 +1,10 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/lib/api";
+
 interface Plan {
   id: string;
   name: string;
@@ -11,6 +16,11 @@ interface Plan {
 }
 
 export default function PricingCard() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
   const plans: Plan[] = [
     {
       id: "free",
@@ -18,26 +28,57 @@ export default function PricingCard() {
       price: 0,
       daily_limit: 3,
       quality: "720p",
-      features: ["每日 3 次下载", "单视频下载", "720p 清晰度", "基础支持"],
+      features: ["每日 3 次下载", "单视频下载", "720p 清晰度", "AI 视频总结"],
     },
     {
-      id: "monthly",
-      name: "月卡",
-      price: 29,
+      id: "vip",
+      name: "VIP 会员",
+      price: 9.9,
       daily_limit: 50,
-      quality: "1080p",
-      features: ["每日 50 次下载", "批量下载 5 个", "1080p 清晰度", "字幕下载", "优先支持"],
+      quality: "4K",
+      features: ["每日 50 次下载", "批量下载", "4K 超清画质", "字幕下载", "AI 视频总结", "优先支持"],
       popular: true,
     },
-    {
-      id: "yearly",
-      name: "年卡",
-      price: 199,
-      daily_limit: 200,
-      quality: "4K",
-      features: ["每日 200 次下载", "批量下载 20 个", "4K 清晰度", "AI 视频总结", "专属客服"],
-    },
   ];
+
+  const handleSubscribe = async (planId: string) => {
+    setError("");
+
+    if (planId === "free") return;
+
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    if (user.plan_id === "vip") {
+      setError("您已是 VIP 会员");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await api.createCheckout(planId);
+      if (res.code === 0 && res.data.checkout_url) {
+        window.location.href = res.data.checkout_url;
+      } else {
+        setError(res.message || "创建支付会话失败");
+      }
+    } catch (err: any) {
+      setError("网络错误，请稍后重试");
+    }
+    setLoading(false);
+  };
+
+  const getButtonText = (plan: Plan) => {
+    if (plan.id === "free") {
+      if (user && user.plan_id === "free") return "当前方案";
+      return "免费使用";
+    }
+    if (user && user.plan_id === "vip") return "已是 VIP";
+    if (user) return loading ? "跳转中..." : "立即订阅";
+    return "立即订阅";
+  };
 
   return (
     <div className="w-full max-w-4xl mx-auto mt-16">
@@ -48,7 +89,13 @@ export default function PricingCard() {
         <p className="text-gray-500 text-lg">选择适合您的方案，解锁更多高级功能</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {error && (
+        <div className="max-w-md mx-auto mb-6 bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm text-center">
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
         {plans.map((plan) => (
           <div
             key={plan.id}
@@ -72,9 +119,7 @@ export default function PricingCard() {
                   {plan.price === 0 ? "免费" : `¥${plan.price}`}
                 </span>
                 {plan.price > 0 && (
-                  <span className="text-gray-500">
-                    {plan.id === "yearly" ? "/年" : "/月"}
-                  </span>
+                  <span className="text-gray-500">/月</span>
                 )}
               </div>
 
@@ -95,13 +140,15 @@ export default function PricingCard() {
               </ul>
 
               <button
+                onClick={() => handleSubscribe(plan.id)}
+                disabled={loading || (user?.plan_id === "vip" && plan.id === "vip")}
                 className={`w-full py-3 mt-6 rounded-xl font-medium transition-all ${
                   plan.popular
-                    ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:shadow-xl"
+                    ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:shadow-xl disabled:opacity-50"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
-                {plan.price === 0 ? "当前方案" : "立即订阅"}
+                {getButtonText(plan)}
               </button>
             </div>
           </div>

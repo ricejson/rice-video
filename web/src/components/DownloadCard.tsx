@@ -47,6 +47,7 @@ export default function DownloadCard() {
   const [summarizeLoading, setSummarizeLoading] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const summarizeAbortRef = useRef<AbortController | null>(null);
+  const summarizeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typewriterTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const summarizeTriggeredRef = useRef(false);
   const maxRetries = 2;
@@ -55,6 +56,7 @@ export default function DownloadCard() {
   useEffect(() => {
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
+      if (summarizeTimeoutRef.current) clearTimeout(summarizeTimeoutRef.current);
       if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
       if (summarizeAbortRef.current) summarizeAbortRef.current.abort();
     };
@@ -91,7 +93,17 @@ export default function DownloadCard() {
           body: JSON.stringify({ url }),
         });
 
-        const data = await res.json();
+        if (!res.ok && res.status >= 500) {
+          throw new Error("服务器内部错误，请稍后重试");
+        }
+
+        const text = await res.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error(`服务器返回异常: ${text.substring(0, 100)}`);
+        }
         if (data.code !== 0) {
           throw new Error(data.message || "解析任务提交失败");
         }
@@ -103,11 +115,14 @@ export default function DownloadCard() {
         await pollParseResult(taskId);
         return;
       } catch (err: any) {
-        if (attempt < maxRetries) {
+        const errMsg = err.message || "";
+        // 网络超时错误无需重试，直接反馈给用户
+        const isTimeout = errMsg.toLowerCase().includes("timed out") || errMsg.toLowerCase().includes("timeout");
+        if (attempt < maxRetries && !isTimeout) {
           await sleep(retryDelay);
           continue;
         }
-        setError(err.message || "解析失败，请检查链接是否有效");
+        setError(errMsg || "解析失败，请检查链接是否有效");
         setStage("input");
         setLoading(false);
       }
@@ -119,7 +134,14 @@ export default function DownloadCard() {
       pollingRef.current = setInterval(async () => {
         try {
           const statusRes = await fetch(`/api/parse/${taskId}`);
-          const statusData = await statusRes.json();
+          const text = await statusRes.text();
+          let statusData;
+          try {
+            statusData = JSON.parse(text);
+          } catch {
+            console.error("解析轮询返回非 JSON 响应:", text.substring(0, 200));
+            return;
+          }
 
           if (statusData.code === 0 && statusData.data) {
             const progress = statusData.data;
@@ -144,7 +166,12 @@ export default function DownloadCard() {
             }
           }
         } catch (e: any) {
-          console.error("轮询错误:", e);
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          pollingRef.current = null;
+          setError(e.message || "解析请求失败");
+          setStage("input");
+          setLoading(false);
+          reject(e);
         }
       }, 1000);
     });
@@ -180,7 +207,14 @@ export default function DownloadCard() {
       pollingRef.current = setInterval(async () => {
         try {
           const statusRes = await fetch(`/api/download/status/${dlTaskId}`);
-          const statusData = await statusRes.json();
+          const text = await statusRes.text();
+          let statusData;
+          try {
+            statusData = JSON.parse(text);
+          } catch {
+            console.error("下载轮询返回非 JSON 响应:", text.substring(0, 200));
+            return;
+          }
 
           if (statusData.code === 0 && statusData.data) {
             const progress = statusData.data;
@@ -218,6 +252,10 @@ export default function DownloadCard() {
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
+    }
+    if (summarizeTimeoutRef.current) {
+      clearTimeout(summarizeTimeoutRef.current);
+      summarizeTimeoutRef.current = null;
     }
     if (summarizeAbortRef.current) {
       summarizeAbortRef.current.abort();
@@ -312,9 +350,14 @@ export default function DownloadCard() {
     const controller = new AbortController();
     summarizeAbortRef.current = controller;
 
+    // 设置 5 分钟超时，防止网络问题导致无限等待
+    const SUMMARIZE_TIMEOUT = 5 * 60 * 1000;
+    summarizeTimeoutRef.current = setTimeout(() => {
+      controller.abort();
+    }, SUMMARIZE_TIMEOUT);
+
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${apiBase}/api/summarize/stream`, {
+      const res = await fetch("/api/summarize/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -455,6 +498,10 @@ export default function DownloadCard() {
       }
       setSummarizeLoading(false);
     } finally {
+      if (summarizeTimeoutRef.current) {
+        clearTimeout(summarizeTimeoutRef.current);
+        summarizeTimeoutRef.current = null;
+      }
       summarizeAbortRef.current = null;
       if (typewriterTimerRef.current) {
         clearInterval(typewriterTimerRef.current);
