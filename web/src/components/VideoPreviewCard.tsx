@@ -63,9 +63,9 @@ export default function VideoPreviewCard({
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-100 to-indigo-100">
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-50 to-green-50">
               <svg
-                className="w-16 h-16 text-blue-400"
+                className="w-16 h-16 text-emerald-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -89,7 +89,7 @@ export default function VideoPreviewCard({
 
           {/* Playlist 标签 */}
           {video.is_playlist && (
-            <div className="absolute top-3 left-3 px-3 py-1.5 bg-blue-500/90 text-white text-sm font-medium rounded-lg flex items-center gap-1.5">
+            <div className="absolute top-3 left-3 px-3 py-1.5 bg-emerald-500/90 text-white text-sm font-medium rounded-lg flex items-center gap-1.5">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
               </svg>
@@ -110,7 +110,7 @@ export default function VideoPreviewCard({
           {/* 平台和作者 */}
           <div className="flex items-center gap-4 text-sm text-gray-500">
             {video.platform && (
-              <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full font-medium">
+              <span className="px-3 py-1 bg-green-50 text-emerald-600 rounded-full font-medium">
                 {video.platform}
               </span>
             )}
@@ -136,7 +136,7 @@ export default function VideoPreviewCard({
               {video.description.split("\n").filter((l) => l.trim()).length > 3 && (
                 <button
                   onClick={() => setShowFullDescription(!showFullDescription)}
-                  className="text-blue-500 text-sm font-medium hover:text-blue-600 transition-colors"
+                  className="text-emerald-500 text-sm font-medium hover:text-emerald-600 transition-colors"
                 >
                   {showFullDescription ? "收起" : "展开全部"}
                 </button>
@@ -151,7 +151,7 @@ export default function VideoPreviewCard({
         <div className="backdrop-blur-2xl bg-white/70 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.08)] p-8 border border-white/20">
           <div className="flex items-center justify-between mb-4">
             <h4 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
               </svg>
               播放列表（共{video.playlist_count}个视频）
@@ -164,7 +164,7 @@ export default function VideoPreviewCard({
                     if (onEntryToggle) onEntryToggle(i + 1);
                   });
                 }}
-                className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-sm text-emerald-600 hover:bg-green-50 rounded-lg transition-colors"
               >
                 全选
               </button>
@@ -189,7 +189,7 @@ export default function VideoPreviewCard({
                 onClick={() => onEntryToggle?.(entry.index)}
                 className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-all ${
                   selectedEntries.includes(entry.index)
-                    ? "bg-blue-50 border-2 border-blue-500"
+                    ? "bg-green-50 border-2 border-emerald-500"
                     : "bg-gray-50/50 border-2 border-transparent hover:bg-gray-100"
                 }`}
               >
@@ -197,7 +197,7 @@ export default function VideoPreviewCard({
                 <div
                   className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
                     selectedEntries.includes(entry.index)
-                      ? "bg-blue-500 text-white"
+                      ? "bg-emerald-500 text-white"
                       : "bg-white border-2 border-gray-300"
                   }`}
                 >
@@ -239,7 +239,7 @@ export default function VideoPreviewCard({
         <button
           onClick={onDownload}
           disabled={loading}
-          className="flex-1 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-blue-500/25 hover:shadow-2xl hover:shadow-blue-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+          className="flex-1 py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-emerald-500/20 hover:shadow-2xl hover:shadow-emerald-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
         >
           {loading ? (
             <>

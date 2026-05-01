@@ -24,7 +24,7 @@ export default function SummaryCard({
   return (
     <div className="backdrop-blur-2xl bg-white/70 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.08)] p-6 border border-white/20">
       <div className="flex items-center gap-2 mb-5">
-        <span className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white text-sm font-bold">
+        <span className="w-8 h-8 bg-gradient-to-r from-emerald-400 to-green-500 rounded-lg flex items-center justify-center text-white text-sm font-bold">
           AI
         </span>
         <h3 className="text-lg font-bold text-gray-900">视频总结</h3>
@@ -36,7 +36,7 @@ export default function SummaryCard({
             onClick={() => setActiveTab("summary")}
             className={`px-4 py-2 rounded-xl font-medium transition-all ${
               activeTab === "summary"
-                ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25"
+                ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-500/20"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -46,7 +46,7 @@ export default function SummaryCard({
             onClick={() => setActiveTab("mindmap")}
             className={`px-4 py-2 rounded-xl font-medium transition-all ${
               activeTab === "mindmap"
-                ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25"
+                ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-500/20"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -56,7 +56,7 @@ export default function SummaryCard({
             onClick={() => setActiveTab("chat")}
             className={`px-4 py-2 rounded-xl font-medium transition-all ${
               activeTab === "chat"
-                ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25"
+                ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-500/20"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -66,7 +66,7 @@ export default function SummaryCard({
             onClick={() => setActiveTab("transcript")}
             className={`px-4 py-2 rounded-xl font-medium transition-all ${
               activeTab === "transcript"
-                ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25"
+                ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-500/20"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -82,15 +82,15 @@ export default function SummaryCard({
                 <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
                   {textSummary}
                   {isStreaming && (
-                    <span className="inline-block w-2 h-5 bg-blue-500 ml-0.5 align-middle animate-pulse rounded-sm" />
+                    <span className="inline-block w-2 h-5 bg-emerald-500 ml-0.5 align-middle animate-pulse rounded-sm" />
                   )}
                 </div>
               ) : isStreaming ? (
                 <div className="text-gray-500 text-center py-8">
                   <div className="flex gap-1 justify-center">
-                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                   </div>
                 </div>
               ) : (
@@ -109,7 +109,7 @@ export default function SummaryCard({
             <div className="text-center py-12">
               {isStreaming ? (
                 <div className="space-y-4">
-                  <div className="w-12 h-12 mx-auto bg-gradient-to-r from-indigo-400 to-purple-500 rounded-xl flex items-center justify-center animate-pulse">
+                  <div className="w-12 h-12 mx-auto bg-gradient-to-r from-emerald-400 to-green-500 rounded-xl flex items-center justify-center animate-pulse">
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
@@ -119,9 +119,9 @@ export default function SummaryCard({
                     <p className="text-gray-400 text-sm">AI 正在分析视频内容并构建知识结构</p>
                   </div>
                   <div className="flex gap-1 justify-center">
-                    <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                   </div>
                 </div>
               ) : (
@@ -165,7 +165,7 @@ export default function SummaryCard({
                           document.body.removeChild(a);
                           URL.revokeObjectURL(url);
                         }}
-                        className="px-3 py-1.5 text-sm bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-lg transition-all flex items-center gap-1"
+                        className="px-3 py-1.5 text-sm bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg transition-all flex items-center gap-1"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

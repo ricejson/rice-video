@@ -39,11 +39,11 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#f0f0f0] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="backdrop-blur-2xl bg-white/70 rounded-[2rem] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-white/20">
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
               注册
             </h1>
             <p className="text-gray-500 mt-2">注册即可获得免费使用额度</p>
@@ -62,7 +62,7 @@ export default function RegisterPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
                 required
-                className="w-full px-4 py-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-blue-500 outline-none transition-all"
+                className="w-full px-4 py-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-emerald-500 outline-none transition-all"
               />
             </div>
 
@@ -74,7 +74,7 @@ export default function RegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="至少 6 位密码"
                 required
-                className="w-full px-4 py-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-blue-500 outline-none transition-all"
+                className="w-full px-4 py-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-emerald-500 outline-none transition-all"
               />
             </div>
 
@@ -86,14 +86,14 @@ export default function RegisterPage() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="再次输入密码"
                 required
-                className="w-full px-4 py-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-blue-500 outline-none transition-all"
+                className="w-full px-4 py-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-emerald-500 outline-none transition-all"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/25 hover:shadow-xl transition-all disabled:opacity-50"
+              className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 hover:shadow-xl transition-all disabled:opacity-50"
             >
               {loading ? "注册中..." : "注册"}
             </button>
@@ -101,7 +101,7 @@ export default function RegisterPage() {
 
           <p className="text-center text-sm text-gray-500 mt-6">
             已有账号？
-            <Link href="/login" className="text-blue-600 font-medium ml-1 hover:underline">
+            <Link href="/login" className="text-emerald-600 font-medium ml-1 hover:underline">
               立即登录
             </Link>
           </p>

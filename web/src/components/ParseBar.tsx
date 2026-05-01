@@ -34,7 +34,7 @@ export default function ParseBar({
         <div className="flex items-center justify-center">
           <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs ${
             user
-              ? "bg-blue-50 text-blue-600"
+              ? "bg-green-50 text-emerald-600"
               : "bg-gray-100 text-gray-500"
           }`}>
             {user ? (
@@ -58,7 +58,7 @@ export default function ParseBar({
               onChange={(e) => onUrlChange(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !loading && url.trim() && onParse()}
               placeholder="粘贴视频链接，如 https://www.bilibili.com/video/BVxxx"
-              className="w-full px-5 py-3.5 bg-gray-50/80 rounded-xl border-2 border-transparent focus:border-blue-500 focus:bg-white transition-all outline-none text-gray-700 placeholder-gray-400"
+              className="w-full px-5 py-3.5 bg-gray-50/80 rounded-xl border-2 border-transparent focus:border-emerald-500 focus:bg-white transition-all outline-none text-gray-700 placeholder-gray-400"
               disabled={loading}
             />
             {url && !loading && (
@@ -76,7 +76,7 @@ export default function ParseBar({
           <button
             onClick={onParse}
             disabled={loading || !url.trim()}
-            className="px-8 py-3.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+            className="px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:shadow-emerald-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
           >
             {loading ? (
               <>

@@ -20,7 +20,7 @@ export default function ProgressBar({ progress, speed, eta, status }: ProgressBa
               ? "bg-gradient-to-r from-green-400 to-green-500"
               : isFailed
               ? "bg-gradient-to-r from-red-400 to-red-500"
-              : "bg-gradient-to-r from-blue-500 to-indigo-600"
+              : "bg-gradient-to-r from-emerald-500 to-green-600"
           }`}
           style={{ width: `${Math.min(progress, 100)}%` }}
         />

@@ -83,7 +83,7 @@ export default function PricingCard() {
   return (
     <div className="w-full max-w-4xl mx-auto mt-16">
       <div className="text-center space-y-4 mb-12">
-        <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+        <h2 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
           订阅套餐
         </h2>
         <p className="text-gray-500 text-lg">选择适合您的方案，解锁更多高级功能</p>
@@ -101,12 +101,12 @@ export default function PricingCard() {
             key={plan.id}
             className={`relative backdrop-blur-2xl rounded-[2rem] p-8 border transition-all hover:scale-105 ${
               plan.popular
-                ? "bg-white/90 shadow-2xl shadow-blue-500/20 border-blue-200"
+                ? "bg-white/90 shadow-2xl shadow-emerald-500/15 border-emerald-200"
                 : "bg-white/70 shadow-lg border-white/30"
             }`}
           >
             {plan.popular && (
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-sm font-medium rounded-full shadow-lg">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-emerald-500 to-green-600 text-white text-sm font-medium rounded-full shadow-lg">
                 最受欢迎
               </div>
             )}
@@ -144,7 +144,7 @@ export default function PricingCard() {
                 disabled={loading || (user?.plan_id === "vip" && plan.id === "vip")}
                 className={`w-full py-3 mt-6 rounded-xl font-medium transition-all ${
                   plan.popular
-                    ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:shadow-xl disabled:opacity-50"
+                    ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg shadow-emerald-500/20 hover:shadow-xl disabled:opacity-50"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >

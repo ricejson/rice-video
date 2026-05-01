@@ -72,7 +72,7 @@ export default function ChatPanel({ taskId }: ChatPanelProps) {
             <div
               className={`max-w-[85%] px-4 py-3 rounded-2xl ${
                 msg.role === "user"
-                  ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-br-md shadow-lg shadow-blue-500/20"
+                  ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-br-md shadow-lg shadow-emerald-500/15"
                   : "bg-gray-100 text-gray-800 rounded-bl-md shadow-lg"
               }`}
             >
@@ -101,12 +101,12 @@ export default function ChatPanel({ taskId }: ChatPanelProps) {
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && handleSend()}
           placeholder="输入关于视频的问题..."
-          className="flex-1 px-4 py-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-blue-500 outline-none transition-all"
+          className="flex-1 px-4 py-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-emerald-500 outline-none transition-all"
         />
         <button
           onClick={handleSend}
           disabled={loading || !input.trim()}
-          className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl font-medium shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg flex items-center gap-2"
+          className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl font-medium shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:shadow-emerald-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg flex items-center gap-2"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

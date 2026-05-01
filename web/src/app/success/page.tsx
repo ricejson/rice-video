@@ -19,7 +19,7 @@ export default function SuccessPage() {
   }, [refreshed, refresh]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#f0f0f0] flex items-center justify-center px-4">
       <div className="text-center">
         <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-100 flex items-center justify-center">
           <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,7 +34,7 @@ export default function SuccessPage() {
         </p>
         <Link
           href="/"
-          className="inline-block px-8 py-3.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/25 hover:shadow-xl transition-all"
+          className="inline-block px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 hover:shadow-xl transition-all"
         >
           返回首页
         </Link>

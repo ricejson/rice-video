@@ -222,7 +222,7 @@ export default function MindMapViewer({ data }: MindMapViewerProps) {
       ctx.fillRect(0, 0, svgW, svgH);
 
       // === 绘制连线 ===
-      ctx.strokeStyle = "#818cf8";
+      ctx.strokeStyle = "#34d399";
       ctx.lineWidth = 2;
       ctx.lineCap = "round";
       for (const l of allLines) {
@@ -256,21 +256,21 @@ export default function MindMapViewer({ data }: MindMapViewerProps) {
 
         if (isRoot) {
           const grad = ctx.createLinearGradient(n.x, n.y, n.x + n.w, n.y);
-          grad.addColorStop(0, "#3b82f6");
-          grad.addColorStop(1, "#4f46e5");
+          grad.addColorStop(0, "#10b050");
+          grad.addColorStop(1, "#059669");
           ctx.fillStyle = grad;
           drawRoundRect(n.x, n.y, n.w, n.h);
           ctx.fill();
         } else if (isL1) {
           const grad = ctx.createLinearGradient(n.x, n.y, n.x + n.w, n.y);
-          grad.addColorStop(0, "#818cf8");
-          grad.addColorStop(1, "#a855f7");
+          grad.addColorStop(0, "#34d399");
+          grad.addColorStop(1, "#10b050");
           ctx.fillStyle = grad;
           drawRoundRect(n.x, n.y, n.w, n.h);
           ctx.fill();
         } else {
           ctx.fillStyle = isL2 ? "#ffffff" : "#ffffff";
-          ctx.strokeStyle = isL2 ? "#a5b4fc" : "#d1d5db";
+          ctx.strokeStyle = isL2 ? "#6ee7b7" : "#d1d5db";
           ctx.lineWidth = isL2 ? 2 : 1;
           drawRoundRect(n.x, n.y, n.w, n.h);
           ctx.fill();
@@ -369,7 +369,7 @@ export default function MindMapViewer({ data }: MindMapViewerProps) {
           {isFullscreen ? "退出全屏" : "全屏"}
         </button>
         <button onClick={handleDownload} disabled={downloadLoading}
-          className="px-3 py-1.5 text-sm bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-lg transition-all flex items-center gap-1 disabled:opacity-50">
+          className="px-3 py-1.5 text-sm bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg transition-all flex items-center gap-1 disabled:opacity-50">
           {downloadLoading ? "生成中..." : "下载"}
         </button>
       </div>
@@ -403,8 +403,8 @@ export default function MindMapViewer({ data }: MindMapViewerProps) {
           >
             <defs>
               <linearGradient id="lineG" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#a5b4fc" />
-                <stop offset="100%" stopColor="#6366f1" />
+                <stop offset="0%" stopColor="#6ee7b7" />
+                <stop offset="100%" stopColor="#10b050" />
               </linearGradient>
             </defs>
             {allLines.map((l, i) => {
@@ -432,11 +432,11 @@ export default function MindMapViewer({ data }: MindMapViewerProps) {
                 key={i}
                 className={`absolute rounded-xl flex items-center justify-center text-center leading-snug transition-transform hover:scale-[1.03] ${
                   isRoot
-                    ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-xl shadow-blue-500/30 font-bold text-base"
+                    ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-xl shadow-emerald-500/20 font-bold text-base"
                     : isL1
-                    ? "bg-gradient-to-r from-indigo-400 to-purple-500 text-white shadow-lg shadow-indigo-500/20 font-semibold text-sm"
+                    ? "bg-gradient-to-r from-emerald-400 to-green-500 text-white shadow-lg shadow-emerald-500/15 font-semibold text-sm"
                     : isL2
-                    ? "bg-white border-2 border-indigo-200 text-gray-700 shadow-md font-medium text-xs"
+                    ? "bg-white border-2 border-emerald-200 text-gray-700 shadow-md font-medium text-xs"
                     : "bg-white border border-gray-200 text-gray-600 shadow-sm text-xs"
                 }`}
                 style={{

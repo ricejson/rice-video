@@ -9,7 +9,7 @@ export default function AccountPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#f0f0f0] flex items-center justify-center">
         <p className="text-gray-500">加载中...</p>
       </div>
     );
@@ -17,12 +17,12 @@ export default function AccountPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#f0f0f0] flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-500 mb-4">请先登录</p>
           <Link
             href="/login"
-            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-medium"
+            className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-medium"
           >
             去登录
           </Link>
@@ -37,7 +37,7 @@ export default function AccountPage() {
     : "bg-gray-400";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+    <div className="min-h-screen bg-[#f0f0f0]">
       <Header />
       <main className="max-w-2xl mx-auto px-6 py-12">
         <div className="backdrop-blur-2xl bg-white/70 rounded-[2rem] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-white/20">
@@ -88,7 +88,7 @@ export default function AccountPage() {
             {user.plan_id !== "vip" && (
               <Link
                 href="/"
-                className="flex-1 text-center py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all"
+                className="flex-1 text-center py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all"
               >
                 升级 VIP
               </Link>
