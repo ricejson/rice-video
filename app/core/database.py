@@ -51,6 +51,8 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     canceled_at             TEXT,
     daily_download_count    INTEGER NOT NULL DEFAULT 0,
     download_count_date     TEXT,
+    daily_summary_count     INTEGER NOT NULL DEFAULT 0,
+    summary_count_date      TEXT,
     created_at              TEXT NOT NULL,
     updated_at              TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id)
@@ -78,21 +80,25 @@ CREATE TABLE IF NOT EXISTS payment_logs (
 _MIGRATIONS = [
     # 为旧数据库添加 stripe_customer_id 列
     "ALTER TABLE users ADD COLUMN stripe_customer_id TEXT",
+    # 为 subscriptions 添加 AI 总结每日计数
+    "ALTER TABLE subscriptions ADD COLUMN daily_summary_count INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE subscriptions ADD COLUMN summary_count_date TEXT",
 ]
 
 async def _run_migrations(db: aiosqlite.Connection):
     """Execute database migrations to add missing columns"""
-    # 获取 users 表已有列
-    cursor = await db.execute("PRAGMA table_info(users)")
-    rows = await cursor.fetchall()
-    existing_cols = {row["name"] for row in rows}
-
     for sql in _MIGRATIONS:
         try:
-            # 简单解析 ALTER TABLE ... ADD COLUMN <col_name> ...
-            col_name = sql.split("ADD COLUMN ")[1].split(" ")[0]
+            # 解析 ALTER TABLE <table> ADD COLUMN <col_name> ...
+            parts = sql.split()
+            table_name = parts[2]  # ALTER TABLE <table> ADD ...
+            col_name = parts[5]    # ALTER TABLE <t> ADD COLUMN <col> ...
+            cursor = await db.execute(f"PRAGMA table_info({table_name})")
+            rows = await cursor.fetchall()
+            existing_cols = {row["name"] for row in rows}
             if col_name not in existing_cols:
                 await db.execute(sql)
                 await db.commit()
+                print(f"Migration applied: {sql}")
         except Exception as e:
             print(f"Migration warning: {e}")

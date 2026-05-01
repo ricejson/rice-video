@@ -32,6 +32,8 @@ class SubscriptionInDB(BaseModel):
     canceled_at: Optional[str] = None
     daily_download_count: int = 0
     download_count_date: Optional[str] = None
+    daily_summary_count: int = 0
+    summary_count_date: Optional[str] = None
     created_at: str = ""
     updated_at: str = ""
 
@@ -60,6 +62,6 @@ class CreateCheckoutRequest(BaseModel):
 
 # 套餐权限常量
 PLAN_LIMITS = {
-    "free": {"daily_downloads": 3, "max_quality": "720p", "max_concurrent": 1, "subtitle_download": False},
-    "vip":  {"daily_downloads": 50, "max_quality": "4K", "max_concurrent": 3, "subtitle_download": True},
+    "free": {"daily_downloads": -1, "daily_summaries": 3,  "max_quality": "4K", "max_concurrent": 1, "subtitle_download": True},
+    "vip":  {"daily_downloads": -1, "daily_summaries": 50, "max_quality": "4K", "max_concurrent": 3, "subtitle_download": True},
 }

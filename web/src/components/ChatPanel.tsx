@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Message {
   role: "user" | "assistant";
@@ -12,6 +13,7 @@ interface ChatPanelProps {
 }
 
 export default function ChatPanel({ taskId }: ChatPanelProps) {
+  const { refresh } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
@@ -48,10 +50,16 @@ export default function ChatPanel({ taskId }: ChatPanelProps) {
       });
 
       const data = await res.json();
-      if (data.code === 0) {
+      if (!res.ok) {
+        // 429 或其他错误，展示后端返回的详情
+        const errMsg = data.detail || `请求失败 (${res.status})`;
+        setMessages(prev => [...prev, { role: "assistant", content: errMsg }]);
+      } else if (data.code === 0) {
         setMessages(prev => [...prev, { role: "assistant", content: data.data.answer }]);
+        // 刷新配额计数
+        refresh();
       } else {
-        setMessages(prev => [...prev, { role: "assistant", content: "抱歉，回答失败。" }]);
+        setMessages(prev => [...prev, { role: "assistant", content: data.message || "抱歉，回答失败。" }]);
       }
     } catch (e) {
       setMessages(prev => [...prev, { role: "assistant", content: "抱歉，网络错误。" }]);

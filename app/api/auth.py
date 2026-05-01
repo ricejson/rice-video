@@ -69,7 +69,7 @@ async def get_me(user: dict = Depends(get_current_user)):
     db = await get_db()
 
     cursor = await db.execute(
-        "SELECT u.id, u.email, u.plan_id, u.created_at, s.status, s.current_period_end, s.daily_download_count "
+        "SELECT u.id, u.email, u.plan_id, u.created_at, s.status, s.current_period_end, s.daily_download_count, s.daily_summary_count "
         "FROM users u LEFT JOIN subscriptions s ON u.id = s.user_id WHERE u.id = ?",
         (user["sub"],),
     )
@@ -88,5 +88,6 @@ async def get_me(user: dict = Depends(get_current_user)):
             "status": row["status"],
             "current_period_end": row["current_period_end"],
             "daily_download_count": row["daily_download_count"],
+            "daily_summary_count": row["daily_summary_count"],
         },
     })

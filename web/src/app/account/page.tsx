@@ -75,9 +75,13 @@ export default function AccountPage() {
             )}
 
             <div className="flex items-center justify-between">
-              <span className="text-gray-500">今日下载次数</span>
+              <span className="text-gray-500">视频下载</span>
+              <span className="text-emerald-600 font-medium">免费不限量</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500">今日 AI 总结</span>
               <span className="text-gray-900 font-medium">
-                {subscription?.daily_download_count ?? 0}
+                {subscription?.daily_summary_count ?? 0}
                 {" / "}
                 {user.plan_id === "vip" ? "50" : "3"}
               </span>

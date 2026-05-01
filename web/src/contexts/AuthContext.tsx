@@ -14,6 +14,7 @@ interface Subscription {
   status: string;
   current_period_end: string | null;
   daily_download_count: number;
+  daily_summary_count: number;
 }
 
 interface AuthState {

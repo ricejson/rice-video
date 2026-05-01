@@ -27,8 +27,8 @@ export default function PricingCard() {
       name: "免费版",
       price: 0,
       daily_limit: 3,
-      quality: "720p",
-      features: ["每日 3 次下载", "单视频下载", "720p 清晰度", "AI 视频总结"],
+      quality: "4K",
+      features: ["视频免费下载", "4K 超清画质", "字幕下载", "AI 视频总结 (每日 3 次)"],
     },
     {
       id: "vip",
@@ -36,7 +36,7 @@ export default function PricingCard() {
       price: 9.9,
       daily_limit: 50,
       quality: "4K",
-      features: ["每日 50 次下载", "批量下载", "4K 超清画质", "字幕下载", "AI 视频总结", "优先支持"],
+      features: ["视频免费下载", "4K 超清画质", "字幕下载", "AI 视频总结 (每日 50 次)", "优先支持"],
       popular: true,
     },
   ];
@@ -124,8 +124,8 @@ export default function PricingCard() {
               </div>
 
               <div className="space-y-2 text-sm text-gray-600">
-                <p>每日 {plan.daily_limit} 次下载</p>
-                <p>{plan.quality} 清晰度</p>
+                <p>AI 总结 {plan.daily_limit} 次/天</p>
+                <p>视频下载免费不限量</p>
               </div>
 
               <ul className="space-y-3 pt-4">

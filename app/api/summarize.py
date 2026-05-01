@@ -1,11 +1,15 @@
-from fastapi import APIRouter, HTTPException
+from datetime import date
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 import asyncio
 import json
-from typing import List
+from typing import List, Optional
 
 from app.models.task import SummarizeRequest, ChatRequest, SummaryTask, TaskStatus, ParseResponse, create_task_id
+from app.models.user import PLAN_LIMITS
 from app.services.summarizer import summarizer
+from app.core.database import get_db
+from app.core.security import get_optional_user
 
 router = APIRouter(prefix="/api/summarize", tags=["summarize"])
 
@@ -39,6 +43,61 @@ def update_task(task_id: str, **kwargs) -> None:
                 setattr(task, key, value)
         from datetime import datetime
         task.updated_at = datetime.now()
+
+
+async def _check_summarize_quota(user: Optional[dict]) -> tuple[int, int, str]:
+    """检查 AI 总结配额，返回 (剩余次数, 每日上限, plan_id) 或抛出 HTTPException"""
+    if not user or not user.get("sub"):
+        raise HTTPException(status_code=401, detail="AI 总结功能需要登录，请先注册免费账号")
+
+    db = await get_db()
+    user_id = user["sub"]
+    today = date.today().isoformat()
+
+    # 获取用户套餐
+    cursor = await db.execute("SELECT plan_id FROM users WHERE id = ?", (user_id,))
+    row = await cursor.fetchone()
+    plan_id = row["plan_id"] if row else "free"
+    limits = PLAN_LIMITS.get(plan_id, PLAN_LIMITS["free"])
+    daily_limit = limits["daily_summaries"]
+
+    # 获取今日使用次数
+    cursor = await db.execute(
+        "SELECT daily_summary_count, summary_count_date FROM subscriptions WHERE user_id = ?",
+        (user_id,),
+    )
+    sub = await cursor.fetchone()
+    count = 0
+    if sub:
+        count_date = sub["summary_count_date"]
+        count = sub["daily_summary_count"]
+        # 新的一天，重置计数
+        if count_date != today:
+            count = 0
+            await db.execute(
+                "UPDATE subscriptions SET daily_summary_count = 0, summary_count_date = ?, updated_at = ? WHERE user_id = ?",
+                (today, today, user_id),
+            )
+
+    if count >= daily_limit:
+        raise HTTPException(
+            status_code=429,
+            detail=f"今日 AI 总结次数已达上限 ({daily_limit} 次)，请明天再试或升级 VIP",
+        )
+
+    remaining = daily_limit - count
+    return remaining, daily_limit, plan_id
+
+
+async def _increment_summary_count(user_id: str):
+    """增加 AI 总结使用计数"""
+    db = await get_db()
+    today = date.today().isoformat()
+    await db.execute(
+        "UPDATE subscriptions SET daily_summary_count = daily_summary_count + 1, summary_count_date = ?, updated_at = ? WHERE user_id = ?",
+        (today, today, user_id),
+    )
+    await db.commit()
 
 
 @router.post("", response_model=ParseResponse)
@@ -113,8 +172,15 @@ async def _run_summarize(task_id: str, url: str, formats: List[str]):
 
 
 @router.post("/stream")
-async def create_summarize_stream(req: SummarizeRequest):
-    """提交视频总结任务 - SSE 流式输出文本总结"""
+async def create_summarize_stream(
+    req: SummarizeRequest,
+    user: Optional[dict] = Depends(get_optional_user),
+):
+    """提交视频总结任务 - SSE 流式输出文本总结（需登录，消耗每日配额）"""
+
+    # 配额检查（在生成器外执行）
+    remaining, daily_limit, plan_id = await _check_summarize_quota(user)
+    user_id = user["sub"]
 
     task_id = create_task_id()
     summary_tasks[task_id] = SummaryTask(
@@ -124,15 +190,21 @@ async def create_summarize_stream(req: SummarizeRequest):
     )
 
     async def event_generator():
+        quota_consumed = False
         try:
-            # 1. 状态：开始提取字幕
-            yield f"data: {json.dumps({'type': 'status', 'message': '正在提取字幕...', 'task_id': task_id})}\n\n"
+            # 状态：开始提取字幕
+            yield f"data: {json.dumps({'type': 'status', 'message': '正在提取字幕...', 'task_id': task_id, 'quota_remaining': remaining, 'quota_limit': daily_limit})}\n\n"
 
             sub_info = await summarizer.extract_subtitles(req.url, task_id)
 
             if not sub_info['subtitles_available']:
                 yield f"data: {json.dumps({'type': 'error', 'message': '该视频没有可用字幕'})}\n\n"
                 return
+
+            # 字幕提取成功，消耗配额
+            if not quota_consumed:
+                await _increment_summary_count(user_id)
+                quota_consumed = True
 
             subtitle_text = sub_info.get('subtitle_text', '')
             subtitle_with_timestamps = sub_info.get('subtitle_with_timestamps', '')
@@ -145,7 +217,7 @@ async def create_summarize_stream(req: SummarizeRequest):
 
             yield f"data: {json.dumps({'type': 'status', 'message': '正在生成AI总结...', 'task_id': task_id, 'subtitle_with_timestamps': subtitle_with_timestamps})}\n\n"
 
-            # 2. 流式生成文本总结
+            # 流式生成文本总结
             full_text = ""
             async for chunk in summarizer.generate_text_summary_stream(subtitle_text):
                 full_text += chunk
@@ -158,7 +230,7 @@ async def create_summarize_stream(req: SummarizeRequest):
             summary_tasks[task_id].status = TaskStatus.FINISHED
             yield f"data: {json.dumps({'type': 'done', 'task_id': task_id, 'full_text': full_text})}\n\n"
 
-            # 3. 再异步生成思维导图（不阻塞文本展示）
+            # 再异步生成思维导图（不阻塞文本展示）
             if 'mindmap' in req.formats:
                 try:
                     mindmap = await summarizer.generate_mindmap(subtitle_text)
@@ -209,8 +281,15 @@ async def get_summarize_result(task_id: str):
 
 
 @router.post("/chat", response_model=ParseResponse)
-async def chat_with_video(req: ChatRequest):
-    """AI 对话问答"""
+async def chat_with_video(
+    req: ChatRequest,
+    user: Optional[dict] = Depends(get_optional_user),
+):
+    """AI 对话问答（需登录，消耗每日配额）"""
+
+    # 配额检查
+    remaining, daily_limit, plan_id = await _check_summarize_quota(user)
+    user_id = user["sub"]
 
     task = get_task(req.task_id)
     if not task:
@@ -225,6 +304,9 @@ async def chat_with_video(req: ChatRequest):
         question=req.question,
         history=task.chat_history
     )
+
+    # 消耗配额
+    await _increment_summary_count(user_id)
 
     # 更新对话历史
     if result.get('history'):

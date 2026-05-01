@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import ParseBar from "./ParseBar";
 import VideoPanel from "./VideoPanel";
 import SummaryPanel from "./SummaryPanel";
+import { getToken } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface TaskProgress {
   task_id: string;
@@ -35,6 +37,7 @@ interface TaskProgress {
 type Stage = "input" | "parsing" | "parsed" | "downloading";
 
 export default function DownloadCard() {
+  const { refresh } = useAuth();
   const [url, setUrl] = useState("");
   const [stage, setStage] = useState<Stage>("input");
   const [loading, setLoading] = useState(false);
@@ -62,11 +65,13 @@ export default function DownloadCard() {
     };
   }, []);
 
-  // Auto-trigger summarize when parsing completes
+  // Auto-trigger summarize when parsing completes (only if logged in)
   useEffect(() => {
     if (stage === "parsed" && task?.url && !summarizeTriggeredRef.current) {
       summarizeTriggeredRef.current = true;
-      handleSummarize();
+      if (getToken()) {
+        handleSummarize();
+      }
     }
   }, [stage]);
 
@@ -338,6 +343,13 @@ export default function DownloadCard() {
     }
     if (summarizeLoading) return;
 
+    // 未登录时提示，不发起请求
+    if (!getToken()) {
+      setError("AI 总结功能需要登录，请先注册免费账号（每日 3 次）");
+      setSummarizeLoading(false);
+      return;
+    }
+
     if (typewriterTimerRef.current) {
       clearInterval(typewriterTimerRef.current);
       typewriterTimerRef.current = null;
@@ -359,9 +371,13 @@ export default function DownloadCard() {
     try {
       // 直连后端，跳过 Next.js 代理避免 SSE 流被缓冲
       const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const token = getToken();
       const res = await fetch(`${apiBase}/api/summarize/stream`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           url: task.url,
           formats: ["text", "mindmap", "chat"]
@@ -370,7 +386,12 @@ export default function DownloadCard() {
       });
 
       if (!res.ok) {
-        throw new Error(`请求失败: ${res.status}`);
+        let errMsg = `请求失败 (${res.status})`;
+        try {
+          const errBody = JSON.parse(await res.text());
+          if (errBody.detail) errMsg = errBody.detail;
+        } catch {}
+        throw new Error(errMsg);
       }
 
       const reader = res.body?.getReader();
@@ -434,6 +455,8 @@ export default function DownloadCard() {
                   setSummaryTaskId(currentTaskId);
                   if (event.subtitle_with_timestamps) {
                     timestamps = event.subtitle_with_timestamps;
+                    // 配额已消耗，刷新 AuthContext 中的计数
+                    refresh();
                   }
                 } else if (event.type === "chunk") {
                   currentTaskId = event.task_id || currentTaskId;

@@ -19,15 +19,15 @@ export default function ParseBar({
 }: ParseBarProps) {
   const { user, subscription } = useAuth();
 
-  const dailyLimit = user?.plan_id === "vip" ? 50 : 3;
-  const dailyCount = subscription?.daily_download_count ?? 0;
-  const remaining = Math.max(0, dailyLimit - dailyCount);
+  const summaryLimit = user?.plan_id === "vip" ? 50 : 3;
+  const summaryCount = subscription?.daily_summary_count ?? 0;
+  const summaryRemaining = Math.max(0, summaryLimit - summaryCount);
   return (
     <div className="backdrop-blur-2xl bg-white/70 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.08)] p-6 border border-white/20">
       <div className="space-y-4">
         <div className="text-center space-y-1">
           <h2 className="text-2xl font-bold text-gray-900">视频下载 & AI 总结</h2>
-          <p className="text-gray-500 text-sm">支持 1700+ 平台，一键下载与智能总结</p>
+          <p className="text-gray-500 text-sm">视频免费下载 + AI 智能总结，支持 1700+ 平台</p>
         </div>
 
         {/* 计划状态与配额提示 */}
@@ -42,10 +42,10 @@ export default function ParseBar({
                 <span className={`w-1.5 h-1.5 rounded-full ${
                   user.plan_id === "vip" ? "bg-amber-400" : "bg-gray-400"
                 }`} />
-                今日剩余 {remaining}/{dailyLimit} 次
+                AI 总结剩余 {summaryRemaining}/{summaryLimit} 次
               </>
             ) : (
-              "未登录 · 每日免费 3 次"
+              "登录后免费使用 AI 总结"
             )}
           </div>
         </div>

@@ -18,9 +18,8 @@ async def get_plans(user: Optional[dict] = Depends(get_optional_user)):
                 "name": "免费版",
                 "price": 0,
                 "currency": "CNY",
-                "daily_limit": 3,
-                "quality": "720p",
-                "features": ["每日 3 次下载", "单视频下载", "720p 清晰度", "AI 视频总结"],
+                "daily_summary_limit": 3,
+                "features": ["视频免费下载", "4K 超清画质", "字幕下载", "AI 视频总结 (每日 3 次)"],
             },
             {
                 "id": "vip",
@@ -28,9 +27,8 @@ async def get_plans(user: Optional[dict] = Depends(get_optional_user)):
                 "price": 9.9,
                 "currency": "CNY",
                 "interval": "month",
-                "daily_limit": 50,
-                "quality": "4K",
-                "features": ["每日 50 次下载", "批量下载", "4K 超清画质", "字幕下载", "AI 视频总结", "优先支持"],
+                "daily_summary_limit": 50,
+                "features": ["视频免费下载", "4K 超清画质", "字幕下载", "AI 视频总结 (每日 50 次)", "优先支持"],
             },
         ],
     }

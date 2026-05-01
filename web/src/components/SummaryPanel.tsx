@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import SummaryCard from "./SummaryCard";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SummaryPanelProps {
   summaryTaskId: string | null;
@@ -19,6 +21,8 @@ export default function SummaryPanel({
   isSummarizing,
   isParsing,
 }: SummaryPanelProps) {
+  const { user } = useAuth();
+
   if (isParsing) {
     return (
       <div className="backdrop-blur-2xl bg-white/70 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.08)] p-8 border border-white/20">
@@ -57,6 +61,28 @@ export default function SummaryPanel({
   }
 
   if (!summaryTaskId && !summaryResult) {
+    // 未登录时提示登录
+    if (!user) {
+      return (
+        <div className="backdrop-blur-2xl bg-white/70 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.08)] p-8 border border-white/20">
+          <div className="text-center space-y-6 py-8">
+            <div className="w-14 h-14 mx-auto bg-gradient-to-r from-emerald-400 to-green-500 rounded-2xl flex items-center justify-center">
+              <span className="text-white text-lg font-bold">AI</span>
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-bold text-gray-900">AI 视频总结</h3>
+              <p className="text-gray-500 text-sm">一键总结 · 思维导图 · AI 提问 · 字幕查看</p>
+            </div>
+            <Link
+              href="/login"
+              className="inline-block px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all"
+            >
+              登录使用（每日免费 3 次）
+            </Link>
+          </div>
+        </div>
+      );
+    }
     return null;
   }
 
