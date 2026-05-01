@@ -10,7 +10,7 @@ web/node_modules/
 test_*.py
 
 # Documentation
-docs/
+# docs/ -- 项目文档需要纳入版本管理
 
 # Environment
 .env
