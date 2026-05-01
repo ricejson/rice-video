@@ -34,8 +34,6 @@ interface TaskProgress {
   }>;
 }
 
-const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
-
 type Stage = "input" | "parsing" | "parsed" | "downloading";
 
 export default function DownloadCard() {
@@ -94,7 +92,7 @@ export default function DownloadCard() {
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        const res = await fetch(`${apiBase}/api/parse`, {
+        const res = await fetch("/api/parse", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url }),
@@ -140,7 +138,7 @@ export default function DownloadCard() {
     return new Promise<void>((resolve, reject) => {
       pollingRef.current = setInterval(async () => {
         try {
-          const statusRes = await fetch(`${apiBase}/api/parse/${taskId}`);
+          const statusRes = await fetch(`/api/parse/${taskId}`);
           const text = await statusRes.text();
           let statusData;
           try {
@@ -191,7 +189,7 @@ export default function DownloadCard() {
     setStage("downloading");
 
     try {
-      const res = await fetch(`${apiBase}/api/download`, {
+      const res = await fetch("/api/download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -213,7 +211,7 @@ export default function DownloadCard() {
 
       pollingRef.current = setInterval(async () => {
         try {
-          const statusRes = await fetch(`${apiBase}/api/download/status/${dlTaskId}`);
+          const statusRes = await fetch(`/api/download/status/${dlTaskId}`);
           const text = await statusRes.text();
           let statusData;
           try {
@@ -297,7 +295,7 @@ export default function DownloadCard() {
   const handleDownloadFile = async () => {
     if (!downloadTaskId || !task?.filename) return;
 
-    const fileUrl = `${apiBase}/api/download/file/${downloadTaskId}`;
+    const fileUrl = `/api/download/file/${downloadTaskId}`;
     try {
       const res = await fetch(fileUrl);
       if (!res.ok) {
@@ -371,10 +369,9 @@ export default function DownloadCard() {
     }, SUMMARIZE_TIMEOUT);
 
     try {
-      // 直连后端，跳过 Next.js 代理避免 SSE 流被缓冲
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      // SSE 流式总结，同一服务器无需绕过代理
       const token = getToken();
-      const res = await fetch(`${apiBase}/api/summarize/stream`, {
+      const res = await fetch(`/api/summarize/stream`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
