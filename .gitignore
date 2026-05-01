@@ -11,3 +11,19 @@ test_*.py
 
 # Documentation
 docs/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Database
+data/
+
+# Claude
+.claude/

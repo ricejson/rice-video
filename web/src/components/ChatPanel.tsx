@@ -43,7 +43,8 @@ export default function ChatPanel({ taskId }: ChatPanelProps) {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/summarize/chat", {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
+      const res = await fetch(`${apiBase}/api/summarize/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ task_id: taskId, question: userMessage })

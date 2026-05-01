@@ -1,4 +1,6 @@
-const API_BASE = "/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api`
+  : "/api";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
