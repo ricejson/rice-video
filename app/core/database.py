@@ -1,11 +1,12 @@
 import aiosqlite
 import os
+from typing import Optional
 from pathlib import Path
 
 DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "rice_video.db"
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-_connection: aiosqlite.Connection | None = None
+_connection: Optional[aiosqlite.Connection] = None
 
 
 async def get_db() -> aiosqlite.Connection:

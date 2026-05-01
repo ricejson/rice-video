@@ -38,8 +38,13 @@ app.include_router(summarize.router)
 app.include_router(auth.router)
 app.include_router(payment.router)
 
-# 静态文件目录
-STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+# 静态文件目录：Docker 部署使用 static/，本地开发使用 web/out/
+_BASE = Path(__file__).resolve().parent.parent
+STATIC_DIR = _BASE / "static"
+if not STATIC_DIR.exists():
+    _web_out = _BASE / "web" / "out"
+    if _web_out.exists():
+        STATIC_DIR = _web_out
 
 # 挂载 Next.js 静态资源 (_next/static, favicon 等)
 if STATIC_DIR.exists():

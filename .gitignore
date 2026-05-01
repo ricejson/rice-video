@@ -25,5 +25,8 @@ __pycache__/
 # Database
 data/
 
+# Local dev symlink (frontend static files)
+static/
+
 # Claude
 .claude/
