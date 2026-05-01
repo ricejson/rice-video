@@ -357,7 +357,9 @@ export default function DownloadCard() {
     }, SUMMARIZE_TIMEOUT);
 
     try {
-      const res = await fetch("/api/summarize/stream", {
+      // 直连后端，跳过 Next.js 代理避免 SSE 流被缓冲
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${apiBase}/api/summarize/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
