@@ -35,10 +35,9 @@ class VideoSummarizer:
             'skip_download': True,
             'writesubtitles': True,
             'writeautomaticsub': True,
-            'subtitleslangs': ['zh-Hans', 'zh-Hant', 'en', 'ja', 'ko', 'ai-zh'],
+            'subtitleslangs': ['zh-Hans', 'zh-Hant', 'en', 'ja', 'ko', 'ai-zh', 'danmaku'],
             'subtitlesformat': 'srt',
             'outtmpl': str(subtitle_dir / '%(id)s.%(ext)s'),
-            'cookiesfrombrowser': ('chrome', None, None, None),
             'socket_timeout': 30,
             'extractor_retries': 3,
             'retries': 3,
@@ -49,7 +48,7 @@ class VideoSummarizer:
             },
         }
 
-        loop = asyncio.get_event_loop()
+        import concurrent.futures
 
         def sync_extract():
             try:
@@ -57,10 +56,35 @@ class VideoSummarizer:
                     info = ydl.extract_info(url, download=False)
                     return info
             except Exception as e:
-                print(f"字幕提取失败: {e}")
+                print(f"[字幕提取] yt-dlp 提取失败: {e}")
                 return None
 
-        info = await loop.run_in_executor(None, sync_extract)
+        # 使用超时机制，防止 yt-dlp 卡死
+        loop = asyncio.get_event_loop()
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = loop.run_in_executor(executor, sync_extract)
+                info = await asyncio.wait_for(asyncio.wrap_future(future), timeout=60.0)
+        except asyncio.TimeoutError:
+            print(f"[字幕提取] 超时 (60s)")
+            return {
+                'subtitles_available': False,
+                'subtitles': [],
+                'subtitle_text': '',
+                'title': '',
+                'duration': 0,
+                'error': '字幕提取超时'
+            }
+        except Exception as e:
+            print(f"[字幕提取] 异常: {e}")
+            return {
+                'subtitles_available': False,
+                'subtitles': [],
+                'subtitle_text': '',
+                'title': '',
+                'duration': 0,
+                'error': str(e)
+            }
 
         if not info:
             return {
@@ -78,19 +102,21 @@ class VideoSummarizer:
         subtitle_text = ""
         subtitle_with_timestamps = ""
 
-        # 优先使用 AI 字幕（ai-zh），其次是中文字幕
-        for lang in ['ai-zh', 'zh-Hans', 'zh-Hant', 'en']:
+        # 优先使用 AI 字幕（ai-zh），其次是中文字幕，最后尝试弹幕
+        for lang in ['ai-zh', 'zh-Hans', 'zh-Hant', 'en', 'danmaku']:
             # 先检查普通字幕
             if lang in subtitles_data:
                 sub_list = subtitles_data[lang]
                 for sub in sub_list:
                     if 'data' in sub:
-                        # 直接包含字幕内容（带时间戳的原始格式）
                         subtitle_with_timestamps = sub['data']
                         subtitle_text = self._parse_subtitle_content(subtitle_with_timestamps)
                         break
                     elif 'url' in sub:
-                        subtitle_with_timestamps = await self._download_subtitle_text(sub['url'])
+                        if lang == 'danmaku':
+                            subtitle_with_timestamps = await self._download_danmaku_text(sub['url'])
+                        else:
+                            subtitle_with_timestamps = await self._download_subtitle_text(sub['url'])
                         if subtitle_with_timestamps:
                             subtitle_text = self._parse_subtitle_content(subtitle_with_timestamps)
                             break
@@ -134,6 +160,55 @@ class VideoSummarizer:
             'title': info.get('title', ''),
             'duration': info.get('duration', 0)
         }
+
+    async def _download_danmaku_text(self, url: str) -> str:
+        """下载并解析 Bilibili 弹幕 XML，提取纯文本"""
+        import httpx
+        import xml.etree.ElementTree as ET
+
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.get(url, headers={
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                })
+                if response.status_code != 200:
+                    print(f"[弹幕] 下载失败: HTTP {response.status_code}")
+                    return ""
+
+                content = response.text
+                root = ET.fromstring(content)
+
+                # 提取所有 <d> 标签的文本内容
+                danmaku_texts = []
+                for d in root.findall('d'):
+                    text = d.text
+                    if text and text.strip():
+                        danmaku_texts.append(text.strip())
+
+                if danmaku_texts:
+                    # 去重并限制数量
+                    seen = set()
+                    unique_texts = []
+                    for t in danmaku_texts:
+                        if t not in seen:
+                            seen.add(t)
+                            unique_texts.append(t)
+                            if len(unique_texts) >= 2000:  # 最多 2000 条弹幕
+                                break
+
+                    result = ' '.join(unique_texts)
+                    print(f"[弹幕] 提取了 {len(unique_texts)} 条弹幕文本, 总长度: {len(result)}")
+                    return result
+
+                print(f"[弹幕] XML 中无有效弹幕文本")
+                return ""
+
+        except ET.ParseError as e:
+            print(f"[弹幕] XML 解析失败: {e}")
+            return ""
+        except Exception as e:
+            print(f"[弹幕] 下载解析异常: {e}")
+            return ""
 
     def _parse_subtitle_content(self, content: str) -> str:
         """解析字幕内容，提取纯文本"""
