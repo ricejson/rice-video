@@ -6,8 +6,10 @@ __pycache__
 .gitignore
 .env
 .env.example
-node_modules
-web
+**/node_modules
+web/node_modules
+web/.next
+web/out
 docs
 .claude
 .idea
